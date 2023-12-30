@@ -6,7 +6,11 @@ import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contr
 contract MyERC20Token is ERC20 {
 
     constructor(string memory _name, string memory _symbol) ERC20(_name, _symbol) {
-        _mint(msg.sender, 1000 * 10**18);
+        _mint(msg.sender, 1000 * 10**decimals());
+    }
+
+    function decimals() public pure override returns (uint8) {
+        return 9;
     }
 }
 

@@ -22,3 +22,10 @@ Monitor events:
 Test contract:
 
 `yarn test`
+
+Dispaly opcode: 
+
+```
+pip install pyevmasm
+echo -n "608060405260043610603f57600035" | evmasm -d
+```

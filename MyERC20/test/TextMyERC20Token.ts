@@ -17,12 +17,12 @@ describe("Token contract", function () {
     const token = await ethers.deployContract("MyERC20Token", ["My ERC20 Token", "MY20", 18, 1000]);
 
     const spender = "0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2";
-    console.log(await token.allowance(owner.address, spender));
+    expect(await token.allowance(owner.address, spender)).to.equal(0);
     await token.approve(spender, 100);
-    console.log(await token.allowance(owner.address, spender));
+    expect(await token.allowance(owner.address, spender)).to.equal(100);
     await token.approve(spender, 10);
-    console.log(await token.allowance(owner.address, spender));
+    expect(await token.allowance(owner.address, spender)).to.equal(10);
 
-});
+  });
 });
 

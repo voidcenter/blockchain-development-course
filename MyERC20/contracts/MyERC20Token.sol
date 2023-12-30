@@ -1,12 +1,16 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
-contract MyERC20TokenStandalone {
+import "hardhat/console.sol";
+
+/// @title ERC-20 Non-Fungible Token Standard, optional metadata extension
+/// @dev See https://eips.ethereum.org/EIPS/eip-20
+contract MyERC20Token {
 
     string  public name;
     string  public symbol;
-    uint    public decimals;
-    uint256 public totalSupply;
+    uint    public immutable decimals;
+    uint256 public immutable totalSupply;
 
     mapping (address =>  uint256) public balance;
     mapping (address =>  mapping (address => uint)) public allowance;
@@ -14,19 +18,40 @@ contract MyERC20TokenStandalone {
     event Transfer(address indexed _from, address indexed _to, uint256 _value);
     event Approval(address indexed _owner, address indexed _spender, uint256 _value);
 
+    /// @param _totalSupply  initial supply of token
+    /// @param _name         token name
+    /// @param _symbol       token symbol
+    /// @param _decimals     token decimals
     constructor(string memory _name, string memory _symbol, uint256 _decimals, uint256 _totalSupply) {
         name = _name;
         symbol = _symbol;
         decimals = _decimals;
         totalSupply = _totalSupply;
         balance[msg.sender] = totalSupply;
+
+        // console.log(
+        //     "Creating contract %s %s %d %d",
+        //     name, symbol, decimals, totalSupply
+        // );
+        console.log(
+            "Creating contract %s %s %d", name, symbol, decimals);
+        console.log(
+            "total supply %d", totalSupply);
     }
 
     function balanceOf  (address _owner) public view returns (uint256) {
         return balance[_owner];
     }
 
+
     function transfer(address _to, uint256 _value) public returns (bool success)  {
+        console.log(
+            "Transferring from %s to %s %s tokens",
+            msg.sender,
+            _to,
+            _value
+        );
+
         require(balance[msg.sender] >= _value);
         balance[msg.sender] -= _value;
         balance[_to] += _value;

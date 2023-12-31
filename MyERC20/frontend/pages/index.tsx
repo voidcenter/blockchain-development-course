@@ -1,8 +1,7 @@
 
 import { useEffect, useState } from "react";
-import { useAccount, useContractRead } from "wagmi";
+import { useAccount, useContractRead, useWaitForTransaction } from "wagmi";
 import { readContract, waitForTransaction, writeContract } from "wagmi/actions";
-import styles from './index.module.css';
 
 const contract_def = require('../public/MyERC20Token.json');
 const contract_abi = contract_def.abi;
@@ -45,9 +44,27 @@ const AddressWithLink = ({ address }) => {
     )
 }
 
-const Loader = () => <div id="globalLoader">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/b/b1/Loading_icon.gif" alt="" />
-</div>;
+
+const TxHashWithLink = ({ txHash }) => {
+  return (
+      <a href={`https://sepolia.etherscan.io/tx/${txHash}`} 
+         className="underline text-blue-600 pl-1"
+         target="_blank">
+          {txHash}
+      </a>
+  )
+}
+
+
+const TxStatus = ({ status, txHash }) => {
+    if (status === 'pending') { 
+        return <p>Tx <TxHashWithLink txHash={txHash}/> Pending ...</p>;
+    } 
+    if (status === 'success') { 
+        return <p>Tx <TxHashWithLink txHash={txHash}/> Succeeded!</p>;
+    }
+    return <p>Tx <TxHashWithLink txHash={txHash}/>  <p className="text-red-600">{status}</p></p>;
+}
 
 
 export default function Home() {
@@ -61,11 +78,23 @@ export default function Home() {
 
     const [recipient, setRecipient] = useState('');
     const [amount, setAmount] = useState(0);
+    const [txStatus, setTxStatus] = useState(null);
+    const [txHash, setTxHash] = useState(null);
+
     const send = async (recipient, amount) => {
+        if (txStatus === 'pending') {
+            console.log('already pending');
+            return;
+        }
         console.log('sending to ', recipient, amount);
         const tx = await myWriteContract('transfer', [recipient, amount]);
+        setTxHash(tx.hash);
+        setTxStatus('pending');
+
         const receipt = await waitForTransaction(tx);
-        receipt.status === 1 ? alert('Success') : alert('Failed');
+        setTxStatus(receipt.status);
+
+        myBalance.refetch();
     }
 
     return (
@@ -102,10 +131,14 @@ export default function Home() {
                                onChange={(e) => { setAmount(parseInt(e.target.value))}}/>
                     </div>
         
-                    <button className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 w-40"
-                              onClick={() => { send(recipient, amount); }}>Send</button>
-                  {/* <Loader /> */}
-                  <div className={styles.cover_spin}/>
+                    <div className="mb-6">                     
+                        <button className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 w-40"
+                                  onClick={() => { send(recipient, amount); }}>Send</button>
+                    </div>
+
+                    <div className="mb-6 text-sm font-medium text-gray-900">                     
+                        {txStatus && <TxStatus status={txStatus} txHash={txHash} />}
+                    </div>
                 </div>
             </div>
         </main>

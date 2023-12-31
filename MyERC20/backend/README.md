@@ -29,3 +29,10 @@ Dispaly opcode:
 pip install pyevmasm
 echo -n "608060405260043610603f57600035" | evmasm -d
 ```
+
+Verify contract ([reference](https://hardhat.org/hardhat-runner/docs/guides/verifying)):
+
+```
+npx hardhat verify --network sepolia 0x5ae8b20195d12da6A5F1ae5d9fFD775464E952bc "My ERC20 Token" "MY20" 18 1000
+```
+

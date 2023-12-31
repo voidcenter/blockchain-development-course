@@ -44,7 +44,6 @@ const AddressWithLink = ({ address }) => {
     )
 }
 
-
 const TxHashWithLink = ({ txHash }) => {
   return (
       <a href={`https://sepolia.etherscan.io/tx/${txHash}`} 
@@ -55,7 +54,6 @@ const TxHashWithLink = ({ txHash }) => {
   )
 }
 
-
 const TxStatus = ({ status, txHash }) => {
     if (status === 'pending') { 
         return <p>Tx <TxHashWithLink txHash={txHash}/> Pending ...</p>;
@@ -63,7 +61,7 @@ const TxStatus = ({ status, txHash }) => {
     if (status === 'success') { 
         return <p>Tx <TxHashWithLink txHash={txHash}/> Succeeded!</p>;
     }
-    return <p>Tx <TxHashWithLink txHash={txHash}/>  <p className="text-red-600">{status}</p></p>;
+    return <p>Tx <TxHashWithLink txHash={txHash}/>  <span className="text-red-600">{status}</span></p>;
 }
 
 
@@ -82,18 +80,35 @@ export default function Home() {
     const [txHash, setTxHash] = useState(null);
 
     const send = async (recipient, amount) => {
+
+        // Check if a pervious transaction is pending
         if (txStatus === 'pending') {
             console.log('already pending');
             return;
         }
         console.log('sending to ', recipient, amount);
-        const tx = await myWriteContract('transfer', [recipient, amount]);
+
+        // Send transaction
+        const tx = await myWriteContract('transfer', [recipient, amount])
+            .catch(error => {
+                console.log('error', error);
+             });
+
+        // Check if tx was sent
+        if (!tx) {
+            setTxStatus('failed');
+            return;
+        }
+
+        // Update tx status
         setTxHash(tx.hash);
         setTxStatus('pending');
 
+        // Wait for transaction to be mined
         const receipt = await waitForTransaction(tx);
         setTxStatus(receipt.status);
 
+        // Update balance
         myBalance.refetch();
     }
 
@@ -108,18 +123,16 @@ export default function Home() {
                     <p>Contract address: <AddressWithLink address={MyERC20TokenAddress}/> </p>
                     {name.data && <p>Token name: {name.data}</p>}
                     {symbol.data && <p>Token symbol: {symbol.data}</p>}
-                    {decimals.data && <p>Token decimals: {decimals.data.toLocaleString()}</p>}
-                    {totalSupply.data && <p>Token totalSupply: {totalSupply.data.toLocaleString()}</p>}
+                    {decimals.status === 'success' && <p>Token decimals: {decimals.data.toLocaleString()}</p>}
+                    {totalSupply.status === 'success' && <p>Token totalSupply: {totalSupply.data.toLocaleString()}</p>}
                 </div>
 
                 <div className="text-sm font-medium text-gray-900">
                     {address && <p className="pt-4">My address: <AddressWithLink address={address}/> </p>}
-                    {myBalance.data && <p>My balance: {myBalance.data.toLocaleString()}</p>}
+                    {myBalance.status === 'success' && <p>My balance: {myBalance.data.toLocaleString()}</p>}
                 </div>
 
                 <div className="pt-4">
-                    {/* <label className="pr-4">Send to:</label> */}
-                    {/* <input type="text" className="pt-4 rounded-full h-8 align-middle" /> */}
                     <div className="mb-6">
                         <label className="block mb-2 text-sm font-medium text-gray-900">Recipient</label>
                         <input className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" 

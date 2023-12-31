@@ -3,7 +3,7 @@ import "@nomicfoundation/hardhat-toolbox";
 import "hardhat-contract-sizer";
 require('dotenv').config()
 
-const { ALCHEMY_SEPOLIA_KEY, ACCOUNT_PRIVATE_KEY } = process.env;
+const { ALCHEMY_SEPOLIA_KEY, ACCOUNT_PRIVATE_KEY, ETHERSCAN_KEY } = process.env;
 
 
 const config: HardhatUserConfig = {
@@ -21,6 +21,12 @@ const config: HardhatUserConfig = {
     runOnCompile: true,
     strict: true,
   },
+
+  etherscan: {
+    apiKey: {
+      sepolia: ETHERSCAN_KEY,
+    }
+  }
 };
 
 export default config;

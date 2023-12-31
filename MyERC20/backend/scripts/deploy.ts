@@ -5,7 +5,7 @@ async function main() {
 
   console.log("Deploying contracts with the account:", deployer.address);
 
-  const token = await ethers.deployContract("MyERC20Token", ["My ERC20 Token", "MY20", 0, 1000]);
+  const token = await ethers.deployContract("MyERC20Token", ["My ERC20 Token", "MY20", 18, 1000 * 10**18]);
 
   console.log("Token address:", await token.getAddress());
 }

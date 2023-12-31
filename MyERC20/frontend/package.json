@@ -9,9 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@web3modal/wagmi": "^3.5.3",
     "next": "14.0.3",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "viem": "^1.21.1",
+    "wagmi": "^1.4.12"
   },
   "devDependencies": {
     "@types/node": "^20",

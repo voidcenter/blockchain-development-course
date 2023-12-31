@@ -6,6 +6,7 @@
   "author": "Justin Zhang",
   "license": "MIT",
   "scripts": {
+    "compile": "npx hardhat compile && cp artifacts/contracts/MyERC20Token.sol/MyERC20Token.json ../frontend/public/",
     "deploy": "npx hardhat run scripts/deploy.ts --network sepolia",
     "monitor": "npx hardhat run scripts/monitor.ts --network sepolia",
     "test": "npx hardhat run scripts/test.ts --network sepolia"

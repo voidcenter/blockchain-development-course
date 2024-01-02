@@ -6,8 +6,15 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MyERC20TokenOZ is ERC20 {
 
-    constructor(string memory _name, string memory _symbol) ERC20(_name, _symbol) {
-        _mint(msg.sender, 1000 * 10**18);
+    uint8 private decimals;
+
+    constructor(string memory _name, string memory _symbol, uint256 _decimals, uint256 _totalSupply) 
+        ERC20(_name, _symbol) {
+        decimals = _decimals;
+        _mint(msg.sender, _totalSupply);
+    }
+
+    function decimals() public view override returns (uint8) {
+        return uint8(decimals);
     }
 }
-

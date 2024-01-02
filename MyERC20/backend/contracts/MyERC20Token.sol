@@ -29,10 +29,6 @@ contract MyERC20Token {
         totalSupply = _totalSupply;
         balance[msg.sender] = totalSupply;
 
-        // console.log(
-        //     "Creating contract %s %s %d %d",
-        //     name, symbol, decimals, totalSupply
-        // );
         console.log(
             "Creating contract %s %s %d", name, symbol, decimals);
         console.log(
@@ -60,6 +56,13 @@ contract MyERC20Token {
     }
 
     function approve(address _spender, uint256 _value) public returns (bool success) {
+        console.log(
+            "Approving %s to spend %s tokens on behalf of %s",
+            _spender,
+            _value,
+            msg.sender
+        );
+
         allowance[msg.sender][_spender] = _value;
         emit Approval(msg.sender, _spender, _value);
         return true;

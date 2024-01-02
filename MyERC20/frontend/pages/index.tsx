@@ -1,11 +1,11 @@
 
 import { useEffect, useState } from "react";
 import { useAccount, useContractRead, useWaitForTransaction } from "wagmi";
-import { readContract, waitForTransaction, writeContract } from "wagmi/actions";
+import { readContract, waitForTransaction, watchContractEvent, writeContract } from "wagmi/actions";
 
 const contract_def = require('../public/MyERC20Token.json');
 const contract_abi = contract_def.abi;
-const MyERC20TokenAddress = "0x5ae8b20195d12da6A5F1ae5d9fFD775464E952bc";
+const MyERC20TokenAddress = "0xA1BBD8B6493C32A3C27cCDef182b46d3441d9Bc3";
 
 async function myReadContract(func, args) {
     return await readContract({
@@ -32,6 +32,20 @@ function myUseCotnractRead(func, args) {
       functionName: func,
       args
     })
+}
+
+function my_watch_contract_event (eventName: string, callback: (args: any) => void): any {
+  return watchContractEvent(
+      {
+        address: MyERC20TokenAddress,
+        abi: contract_abi,
+        eventName
+      },
+      (logs) => {
+          const log: any = logs[0];
+          callback(log.args);
+      }
+  );
 }
 
 const AddressWithLink = ({ address }) => {
@@ -68,6 +82,29 @@ const TxStatus = ({ status, txHash }) => {
 export default function Home() {
 
     const { address, isConnected } = useAccount();
+    // console.log('address', address);
+
+    // useEffect(() => {
+    //     const run = async () => {
+    //         console.log('name', await myReadContract('name', []));
+    //         console.log('symbol', await myReadContract('symbol', []));
+    //         console.log('decimals', await myReadContract('decimals', []));
+    //         console.log('totalSupply', await myReadContract('totalSupply', []));
+    //         console.log('balanceOf', await myReadContract('balanceOf', [address]));
+    //     };
+    //     run();
+    // });
+
+    useEffect(() => {
+        const unwatch_events = my_watch_contract_event('Transfer', async (args) => {
+            console.log('Transfer event', args);
+        });
+        return () => {
+            console.log('unwatch_events');
+            unwatch_events();
+        };
+    })
+
     const name = myUseCotnractRead('name', []);
     const symbol = myUseCotnractRead('symbol', []);
     const decimals = myUseCotnractRead('decimals', []);
@@ -100,12 +137,16 @@ export default function Home() {
             return;
         }
 
+        // Wait for transaction to be mined
+        const receipt = await waitForTransaction(tx);
+        console.log('transaction receipt', receipt);
+
         // Update tx status
         setTxHash(tx.hash);
         setTxStatus('pending');
 
         // Wait for transaction to be mined
-        const receipt = await waitForTransaction(tx);
+        // const receipt = await waitForTransaction(tx);
         setTxStatus(receipt.status);
 
         // Update balance

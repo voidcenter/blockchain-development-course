@@ -1,8 +1,11 @@
 //SPDX-License-Identifier: GPL-V3
 pragma solidity ^0.8.22;
 
-import '../interfaces/IUniswapV2Pair.sol';
-import "./SafeMath.sol";
+import './interfaces/IUniswapV2Pair.sol';
+import "./libraries/SafeMath.sol";
+
+import "hardhat/console.sol";
+
 
 library UniswapV2Library {
     using SafeMath for uint;
@@ -22,14 +25,21 @@ library UniswapV2Library {
                 hex'ff',
                 factory,
                 keccak256(abi.encodePacked(token0, token1)),
-                hex'96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f' // init code hash
+                hex'b77eb18f9c6d1c7f86e3029cdc2dc687a1e4a094d29aeee27791c738046c7836'  // 
+                // hex'96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f' // init code hash
             )))));
     }
 
     // fetches and sorts the reserves for a pair
     function getReserves(address factory, address tokenA, address tokenB) internal view returns (uint reserveA, uint reserveB) {
+
+        console.log('getReserves', 1);
         (address token0,) = sortTokens(tokenA, tokenB);
+        console.log('getReserves', 2);
+        console.log('getReserves', factory, tokenA, tokenB);
+        console.log('getReserves', pairFor(factory, tokenA, tokenB));
         (uint reserve0, uint reserve1) = IUniswapV2Pair(pairFor(factory, tokenA, tokenB)).getReserves();
+        console.log('getReserves', 3);
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 

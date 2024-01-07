@@ -2,11 +2,11 @@
 pragma solidity ^0.8.22;
 
 import './interfaces/IUniswapV2Pair.sol';
-import './UniswapV2ERC20.sol';
-import './libraries/Math.sol';
 import './interfaces/IERC20.sol';
 import './interfaces/IUniswapV2Factory.sol';
 import './interfaces/IUniswapV2Callee.sol';
+import './libraries/Math.sol';
+import './UniswapV2ERC20.sol';
 
 
 // LP contract
@@ -90,7 +90,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
 
             // See white paper 3.4: https://docs.uniswap.org/whitepaper.pdf 
             // what does the attack mean?
-            liquidity = Math.sqrt(amount0.mul(amount1)).sub(MINIMUM_LIQUIDITY);
+            liquidity = UniswapMath.sqrt(amount0.mul(amount1)).sub(MINIMUM_LIQUIDITY);
            _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
 
@@ -98,7 +98,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
             // in theory, one can contribute tokens in a way that changes the ratio. In that case,
             // amount0.mul(_totalSupply) / _reserve0 and amount1.mul(_totalSupply) / _reserve1 would
             // be different. The sender can only get the lesser of the two though.
-            liquidity = Math.min(amount0.mul(_totalSupply) / _reserve0, amount1.mul(_totalSupply) / _reserve1);
+            liquidity = UniswapMath.min(amount0.mul(_totalSupply) / _reserve0, amount1.mul(_totalSupply) / _reserve1);
         }
         require(liquidity > 0, 'UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED');
         _mint(to, liquidity);

@@ -3,7 +3,8 @@ pragma solidity ^0.8.22;
 
 // a library for performing various math operations
 
-library Math {
+// change to UniswapMath to avoid collision with OpenZeppelin's Math
+library UniswapMath {
     function min(uint x, uint y) internal pure returns (uint z) {
         z = x < y ? x : y;
     }

@@ -1,14 +1,17 @@
 //SPDX-License-Identifier: GPL-V3
 pragma solidity ^0.8.22;
 
+import './interfaces/IERC20.sol';
+import './interfaces/IUniswapV2ERC20.sol';
 import './interfaces/IUniswapV2Factory.sol';
+import './interfaces/IUniswapV2Router02.sol';
+
+import './libraries/SafeMath.sol';
 import './libraries/TransferHelper.sol';
 
-import './interfaces/IUniswapV2Router02.sol';
-import './interfaces/IUniswapV2ERC20.sol';
-import './libraries/UniswapV2Library.sol';
-import './libraries/SafeMath.sol';
-import './interfaces/IERC20.sol';
+import './UniswapV2Library.sol';
+
+import "hardhat/console.sol";
 
 
 // Routing txns to the appropriate LP
@@ -47,18 +50,26 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         uint amountAMin,
         uint amountBMin
     ) internal virtual returns (uint amountA, uint amountB) {
+
+        console.log('1');
+
         // create the pair if it doesn't exist yet
         if (IUniswapV2Factory(factory).getPair(tokenA, tokenB) == address(0)) {
             // you can also call this function directly to create the pair, the func is external 
             IUniswapV2Factory(factory).createPair(tokenA, tokenB);
         }
 
+        console.log('2');
         // Get the pair's current token reserves
         (uint reserveA, uint reserveB) = UniswapV2Library.getReserves(factory, tokenA, tokenB);
+
+        console.log('3', reserveA, reserveB);
+
 
         // determine how much the sender needs to contribute. such contribution should not 
         // change the ratio between the two tokens 
         if (reserveA == 0 && reserveB == 0) {
+
             (amountA, amountB) = (amountADesired, amountBDesired);
         } else {
 
@@ -95,6 +106,8 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         address to,
         uint deadline
     ) external virtual override ensure(deadline) returns (uint amountA, uint amountB, uint liquidity) {
+
+        console.log('addLiquidity', tokenA);
 
         // get amount 
         (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);

@@ -5,8 +5,10 @@ import './interfaces/IUniswapV2Pair.sol';
 import './interfaces/IERC20.sol';
 import './interfaces/IUniswapV2Factory.sol';
 import './interfaces/IUniswapV2Callee.sol';
-import './libraries/Math.sol';
+import './libraries/UniswapMath.sol';
 import './UniswapV2ERC20.sol';
+
+import "hardhat/console.sol";
 
 
 // LP contract
@@ -148,6 +150,10 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external lock {
         require(amount0Out > 0 || amount1Out > 0, 'UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT');
         (uint112 _reserve0, uint112 _reserve1) = getReserves(); // gas savings
+
+        console.log('## [UniswapV2Pair.swap] _reserve0 = ', _reserve0, '_reserve1 = ', _reserve1);
+        console.log('## [UniswapV2Pair.swap] amount0Out = ', amount0Out, 'amount1Out = ', amount1Out);
+
         require(amount0Out < _reserve0 && amount1Out < _reserve1, 'UniswapV2: INSUFFICIENT_LIQUIDITY');
 
         uint balance0;

@@ -19,13 +19,13 @@ library UniswapV2Library {
     }
 
     // easier way, but costs more gas
-    function pairForExpensive(address factory, address tokenA, address tokenB) internal view returns (address pair) {
+    function pairFor(address factory, address tokenA, address tokenB) internal view returns (address pair) {
          return IUniswapV2Factory(factory).getPair(tokenA, tokenB);
     }
 
     // calculates the CREATE2 address for a pair without making any external calls
     // reference: https://www.evm.codes/?fork=shanghai CREATE2
-    function pairFor(address factory, address tokenA, address tokenB) internal pure returns (address pair) {
+    function pairForCheap(address factory, address tokenA, address tokenB) internal pure returns (address pair) {
         (address token0, address token1) = sortTokens(tokenA, tokenB);
         pair = address(uint160(uint(keccak256(abi.encodePacked(
                 hex'ff',
@@ -33,7 +33,7 @@ library UniswapV2Library {
                 keccak256(abi.encodePacked(token0, token1)),
 
                 // update this after re-compliing UniswapV2Pair.sol
-                hex'227181508775a196fec4cbfcfcefecfc5c6a38515355c02e07c0c799436e98b4'  
+                hex'71a70a1de0a14ed98b409a84cab3ea6088fa3557e216c8a09aecdf5984fa3a1d'  
                 // hex'96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f' // init code hash
             )))));
     }

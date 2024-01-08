@@ -19,20 +19,21 @@ contract UniswapV2Factory is IUniswapV2Factory {
         return allPairs.length;
     }
 
-    function iToHex(bytes memory buffer) public pure returns (string memory) {
+    // for debugging
+    // function bytesToHexString(bytes memory buffer) public pure returns (string memory) {
 
-        // Fixed buffer size for hexadecimal convertion
-        bytes memory converted = new bytes(buffer.length * 2);
+    //     // Fixed buffer size for hexadecimal convertion
+    //     bytes memory converted = new bytes(buffer.length * 2);
 
-        bytes memory _base = "0123456789abcdef";
+    //     bytes memory _base = "0123456789abcdef";
 
-        for (uint256 i = 0; i < buffer.length; i++) {
-            converted[i * 2] = _base[uint8(buffer[i]) / _base.length];
-            converted[i * 2 + 1] = _base[uint8(buffer[i]) % _base.length];
-        }
+    //     for (uint256 i = 0; i < buffer.length; i++) {
+    //         converted[i * 2] = _base[uint8(buffer[i]) / _base.length];
+    //         converted[i * 2 + 1] = _base[uint8(buffer[i]) % _base.length];
+    //     }
 
-        return string(abi.encodePacked("0x", converted));
-    }
+    //     return string(abi.encodePacked("0x", converted));
+    // }
     
     function createPair(address tokenA, address tokenB) external returns (address pair) {
         require(tokenA != tokenB, 'UniswapV2: IDENTICAL_ADDRESSES');
@@ -43,8 +44,11 @@ contract UniswapV2Factory is IUniswapV2Factory {
         bytes memory bytecode = type(UniswapV2Pair).creationCode;
         bytes32 salt = keccak256(abi.encodePacked(token0, token1));
 
+        // plug this hash into the pairFor function in UniswapV2Library.sol
+        // note that this bytecode differs from the one in .artifact / remix, why?
+
         console.log('factory createPair bytecode hash', Strings.toHexString(uint256(keccak256(bytecode))));
-        console.log('factory createPair bytecode', iToHex(bytecode));
+        // console.log('factory createPair bytecode', bytesToHexString(bytecode));
 
         // create contract at deterministic address: https://www.evm.codes/?fork=shanghai 
         // bytecode = [32 bytes of code length] [code]

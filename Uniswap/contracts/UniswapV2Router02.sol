@@ -51,7 +51,7 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         uint amountBMin
     ) internal virtual returns (uint amountA, uint amountB) {
 
-        console.log('1');
+        // console.log('1');
 
         // create the pair if it doesn't exist yet
         if (IUniswapV2Factory(factory).getPair(tokenA, tokenB) == address(0)) {
@@ -59,11 +59,11 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
             IUniswapV2Factory(factory).createPair(tokenA, tokenB);
         }
 
-        console.log('2');
+        // console.log('2');
         // Get the pair's current token reserves
         (uint reserveA, uint reserveB) = UniswapV2Library.getReserves(factory, tokenA, tokenB);
 
-        console.log('3', reserveA, reserveB);
+        // console.log('3', reserveA, reserveB);
 
 
         // determine how much the sender needs to contribute. such contribution should not 
@@ -107,10 +107,13 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         uint deadline
     ) external virtual override ensure(deadline) returns (uint amountA, uint amountB, uint liquidity) {
 
-        console.log('addLiquidity', tokenA);
+        console.log('## [UniswapV2Router02.addLiquidity] tokenA = ', tokenA);
 
         // get amount 
         (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
+
+        console.log('## [UniswapV2Router02.addLiquidity] 2', amountA, amountB);
+
 
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
 
@@ -134,6 +137,8 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         uint deadline
     ) public virtual override ensure(deadline) returns (uint amountA, uint amountB) {
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
+
+        // console.log('## [UniswapV2Router02.removeLiquidity] liquidty = ', liquidity, 'pair = ', pair);
 
         // burn those LP tokens from the sender 
         IUniswapV2ERC20(pair).transferFrom(msg.sender, pair, liquidity); // send liquidity to pair

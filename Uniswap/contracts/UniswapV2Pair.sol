@@ -91,7 +91,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
             // See white paper 3.4: https://docs.uniswap.org/whitepaper.pdf 
             // what does the attack mean?
             liquidity = UniswapMath.sqrt(amount0.mul(amount1)).sub(MINIMUM_LIQUIDITY);
-           _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
+            _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
 
             // calculate liquidity (*) 

@@ -29,7 +29,6 @@ contract MyFlashloaner is IUniswapV2Callee {
         uint fee = amount0Out * 4 / 1000;  // should be 0.301%, use 0.4% for simplicity
         uint amounts0In = amount0Out + fee;
         console.log('## [ExampleFlashSwap.uniswapV2Call] amounts0In = ', amounts0In);
-        console.log('## [ExampleFlashSwap.uniswapV2Call] amounts0In = ', amounts0In);
 
         console.log('## [ExampleFlashSwap.uniswapV2Call] token0 balance = ', IERC20(token0).balanceOf(address(this)));
         IERC20(token0).transfer(msg.sender, amounts0In);

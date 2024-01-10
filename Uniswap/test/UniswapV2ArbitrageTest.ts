@@ -1,17 +1,47 @@
 import { AbiCoder } from "ethers";
 import { ethers } from "hardhat";
+import { UniswapV2Pair } from "../typechain-types/UniswapV2Pair";
+import { UniswapV2Factory } from "../typechain-types/UniswapV2Factory";
+import { MyERC20TokenOZ } from "../typechain-types";
+import { UniswapV2Router02 } from "../typechain-types/UniswapV2Router02";
 const { expect } = require("chai");
+
+
+/*
+
+    This is a test to demonstrate using flashloan to arbitrage. The test setup has four tokens and four token pairs:
+
+    t0, t1
+    t0, t2
+    t1, t2
+    t0, t3
+
+    We assume that the triangle t0, t1, t2 has market inefficiency such that there is arbitrage opportunity.
+    The flashloaner borrows t0 from the t0, t3 pair and use that to trade in the t0, t1, t2 triangle.
+    Some of the profit is paid as fee to the t0, t3 pair and the rest is kept as profit.
+
+    In a practical setting, an off-chain program would be used to identify such arbitrage opportunity and to 
+    calculate the optimal amount to borrow and trade.
+
+    In a practical setting, frontrunning should be considered.
+
+*/
+
+
+const PairIndices = [
+    [0, 1],
+    [0, 2],
+    [1, 2],
+    [0, 3]
+];
 
 
 interface TestContext {
     owner: any;
-    swapper: any;
-    token0: any;
-    token1: any;
-    factory: any;
-    pair: any;
-    router: any;
-    flashloaner: any;
+    tokens: MyERC20TokenOZ[];
+    factory: UniswapV2Factory;
+    pairs: UniswapV2Pair[][];
+    router: UniswapV2Router02;
     decimals: bigint;
     decimalsMultipler: bigint;
     formatBigintAmount: (x: bigint) => string;
@@ -21,9 +51,8 @@ interface TestContext {
 async function createTestContext(): Promise<TestContext> {
     console.log("\n\n");
 
-    const [owner, swapper] = await ethers.getSigners();
+    const [owner] = await ethers.getSigners();
     console.log('owner address = ', owner.address)
-    console.log('swapper address = ', swapper.address)
 
     console.log('\n** deploy contracts **');
 
@@ -35,45 +64,50 @@ async function createTestContext(): Promise<TestContext> {
     }
 
     const decimalsMultipler = 10n**decimals;
-    const token0 = await ethers.deployContract("MyERC20TokenOZ", ["Token0", "T0", 18, 10000n * decimalsMultipler]);
-    const token1 = await ethers.deployContract("MyERC20TokenOZ", ["Token1", "T1", 18, 10000n * decimalsMultipler]);
 
-    expect(await token0.totalSupply()).to.equal(await token0.balanceOf(owner.address));
-    expect(await token1.totalSupply()).to.equal(await token1.balanceOf(owner.address));
-    console.log('token0 = ', token0.target);
-    console.log('token1 = ', token1.target);
+    /*
+        the following line is a shorthand for creating 4 tokens:
+
+            const token0 = await ethers.deployContract("MyERC20TokenOZ", ["Token0", "T0", 18, 10000n * decimalsMultipler]);
+            const token1 = await ethers.deployContract("MyERC20TokenOZ", ["Token1", "T1", 18, 10000n * decimalsMultipler]);
+            const token2 = await ethers.deployContract("MyERC20TokenOZ", ["Token2", "T2", 18, 10000n * decimalsMultipler]);
+            const token3 = await ethers.deployContract("MyERC20TokenOZ", ["Token3", "T3", 18, 10000n * decimalsMultipler]);
+
+    */
+    const tokens = await Promise.all([...Array(4).keys()].map(async (i) => {
+        const token = await ethers.deployContract("MyERC20TokenOZ", [`Token${i}`, `T${i}`, 18, 10000n * decimalsMultipler]);
+        expect(await token.totalSupply()).to.equal(await token.balanceOf(owner.address));
+        console.log(`token${i} = `, token.target);
+        return token;
+    }));
 
     // create factory
     const factory = await ethers.deployContract("UniswapV2Factory", []);
     expect(await factory.allPairsLength()).to.equal(0);
     console.log('factory = ', factory.target);
 
-    // create pair
-    // console.log(token0);
-    await factory.createPair(token0.target, token1.target);        
-    const pairAddress = await factory.getPair(token0.target, token1.target);
+    // create pairs
+    // pair array, pairs[0][3] stores the pair of t0, t3. note that pairs[0][3] == pairs[3][0]
+    const pairs: UniswapV2Pair[][] = [...Array(4)].map(e => Array(4));
     const UniswapV2PairFactory = await ethers.getContractFactory("UniswapV2Pair");
-    const pair = await UniswapV2PairFactory.attach(pairAddress) as any;
-
-    console.log('pair = ', pairAddress);
-    console.log('pair: symbol = ', await pair.symbol(), ', token0 = ', await pair.token0(), ', token1 = ', await pair.token1(), 
-                ', reserves = ', await pair.getReserves()); 
+    PairIndices.forEach(async ([i, j]) => {
+        await factory.createPair(tokens[i].target, tokens[j].target);
+        const pairAddress = await factory.getPair(tokens[i].target, tokens[j].target);
+        const pair = await UniswapV2PairFactory.attach(pairAddress) as any;
+        pairs[i][j] = pair;
+        pairs[j][i] = pair;
+        console.log(`pair[${i}][${j}] = `, pairAddress);
+    });
 
     // create router 
     const router = await ethers.deployContract("UniswapV2Router02", [factory.target]);
 
-    // create testing flashloaner
-    const flashloaner = await ethers.deployContract("MyFlashloaner", [factory.target]);
-
     return {
         owner,
-        swapper,
-        token0,
-        token1,
+        tokens,
         factory,
-        pair,
+        pairs,
         router,
-        flashloaner,
         decimals,
         decimalsMultipler,
         formatBigintAmount
@@ -81,102 +115,70 @@ async function createTestContext(): Promise<TestContext> {
 }
 
 
-async function interactWithUniswap(context: TestContext) {
+async function testArbitrage(context: TestContext) {
 
-    const { owner, swapper, token0, token1, pair, router, decimals, decimalsMultipler, formatBigintAmount } = context;
-
-    // add liquidity
-    console.log('\n** add liquidity **');
-    const time_in_the_future = Date.now() + 1000000000;
-    const stakeAmount = 1000n * decimalsMultipler;
-    await token0.approve(router.target, stakeAmount);
-    await token1.approve(router.target, stakeAmount);
-    await router.addLiquidity(token0.target, token1.target, stakeAmount, stakeAmount, 0, 0, owner.address, time_in_the_future);
-    
-    expect(await pair.decimals()).to.equal(decimals);
-    let liquidity = await pair.balanceOf(owner.address);
-    let reserves = await pair.getReserves();
-    expect(liquidity).to.be.above(0);
-    expect(reserves[0]).to.equal(stakeAmount);
-    expect(reserves[1]).to.equal(stakeAmount);
-    console.log('liquidity added = ', formatBigintAmount(liquidity)); 
-    console.log('pair reserves = ', formatBigintAmount(reserves[0]), formatBigintAmount(reserves[1])); 
-
-
-    // swap
-    console.log('\n** swap **');
-    const token0AmountIn = 100n * decimalsMultipler;
-    await token0.transfer(swapper.address, token0AmountIn);   //transfer 100 token0 to swapper
-    await token0.connect(swapper).approve(router.target, token0AmountIn);  // swapper allows the router to spend 100 token0
-    await router.connect(swapper)
-        .swapExactTokensForTokens(token0AmountIn, 0, [token0.target, token1.target], swapper.address, time_in_the_future);
-
-    reserves = await pair.getReserves();
-    let token1AmountOut = await token1.balanceOf(swapper.address);
-    console.log('swapper swapped ', formatBigintAmount(token0AmountIn), 
-                'token0 for', formatBigintAmount(token1AmountOut), 'token1');
-    expect(token1AmountOut).to.be.above(0);
-    expect(reserves[0]).to.equal(stakeAmount + token0AmountIn);
-    expect(reserves[1]).to.equal(stakeAmount - token1AmountOut);
-
-
-    // remove liquidity
-    console.log('\n** remove liquidity **');
-    await pair.approve(router.target, liquidity);
-    await router.removeLiquidity(token0.target, token1.target, liquidity, 0, 0, owner.address, time_in_the_future);
-
-    reserves = await pair.getReserves();
-    console.log('reserve0 = ', formatBigintAmount(reserves[0]), ', reserve1 = ', formatBigintAmount(reserves[1]));
-    console.log('reserves = ', reserves);
-    expect(reserves[0]).to.be.above(0);
-    expect(reserves[1]).to.be.above(0);
-
-    console.log('pair supply = ', await pair.totalSupply());
-    expect(await pair.totalSupply()).to.equal(1000n);   // permanently locked liquidity
-}
-
-
-async function testFlashloan(context: TestContext) {
-
-    const { owner, token0, token1, pair, router, flashloaner, decimalsMultipler, formatBigintAmount } = context;
+    const { owner, tokens, pairs, factory, router, decimalsMultipler, formatBigintAmount } = context;
 
     const time_in_the_future = Date.now() + 1000000000;
-    const stakeAmount = 1000n * decimalsMultipler;
-    await token0.approve(router.target, stakeAmount);
-    await token1.approve(router.target, stakeAmount);
-    await router.addLiquidity(token0.target, token1.target, stakeAmount, stakeAmount, 0, 0, owner.address, time_in_the_future);
-
-    // flashloan
-    console.log('\n** flashloan **');
-    await token0.transfer(flashloaner.target, stakeAmount);   //transfer 1000 token0 to flashloaner
+    const maxStakeAmount = 10000n * decimalsMultipler;
+    tokens.map(async (token) => {
+        await token.approve(router.target, maxStakeAmount);
+    });
 
     /*
-        We are demonstrating flashloan here with over-repayment. This means that we borrow 1000 tokens and later repay
-        1004 tokens. This is not profitable but the point is to demonstrate that we can borrow without collateral.
-        In practical use, we would use these borrowed 1000 tokens to trade for a profit, like end up with 1100 tokens, 
-        then we issue the repayment of 1004 tokens, and keep the 96 tokens as profit.
+        we set up the following prices reflecting market inefficiency:
 
-        For this test, because the owner has sent some token0 to the flashloaner in advance, it can afford to repay 
-        a little more than what it borrowed.
+        t0, t1:   1000, 2000        (1 t0 = 2 t1)
+        t1, t2:   1500, 1000        (3 t1 = 2 t2)
+        t0, t2:   1000, 1000        (1 t0 = 1 t2)
+
+        this way, 300 t0 -> 600 t1 -> 400 t2 -> 400 t0 is a profitable triangle trade.
+
+        we then have a pair:
+
+        t0, t3:   2000, 2000        for liquidity borrowing. We don't trade in this pair, 
+                                    just use it as a source to fund the trade through flashloan.
+
     */
 
+    // add liquidity`
+    await router.addLiquidity(tokens[0].target, tokens[1].target, 1000n * decimalsMultipler, 2000n * decimalsMultipler, 
+        0, 0, owner.address, time_in_the_future);
+    await router.addLiquidity(tokens[1].target, tokens[2].target, 1500n * decimalsMultipler, 1000n * decimalsMultipler, 
+        0, 0, owner.address, time_in_the_future);
+    await router.addLiquidity(tokens[0].target, tokens[2].target, 1000n * decimalsMultipler, 1000n * decimalsMultipler, 
+        0, 0, owner.address, time_in_the_future);
+                
+    await router.addLiquidity(tokens[0].target, tokens[3].target, 2000n * decimalsMultipler, 2000n * decimalsMultipler, 
+        0, 0, owner.address, time_in_the_future);
+
+
+    // arbitrage
+    console.log('\n** arbitrage **');
+    const arbitrageur = await ethers.deployContract("ArbitrageTest", [factory.target, router.target]);
+
     const abi = AbiCoder.defaultAbiCoder();
-    await pair.swap(
-        stakeAmount / 2n,        // only borrow token0
-        0,
-        flashloaner.target,
-        abi.encode(['uint'], [123n])
+    const pair03Token0 = await pairs[0][3].token0();
+    const pair03Token1 = await pairs[0][3].token1();
+    console.log('pairs[0][3] token0 = ', pair03Token0, 'token1 = ', pair03Token1);
+    // set amount0/1Out according to whether token0 is token0 in the pair
+    // nnote that the two tokens are ordered lexigraphically in the pair
+    const borrowAmount = 50n * decimalsMultipler;
+    const amount0Out = tokens[0].target === pair03Token0 ? borrowAmount : 0n;
+    const amount1Out = tokens[0].target === pair03Token0 ? 0n : borrowAmount;
+    await pairs[0][3].swap(
+        amount0Out,
+        amount1Out,
+        arbitrageur.target,
+        abi.encode(['address[]'], [ [tokens[0].target, tokens[1].target, tokens[2].target, tokens[0].target] ])
       )    
 }
 
 
-describe("E2E Test", function () {
-    // it("E2E test should succeed", async function () {
-    //     const context = await createTestContext();
-    //     await interactWithUniswap(context);        
-    // });
+describe("Arbitrage Test", function () {
     it("Flashloan test should succeed", async function () {
         const context = await createTestContext();
-        await testFlashloan(context);        
+        await testArbitrage(context);        
     });
 });
+

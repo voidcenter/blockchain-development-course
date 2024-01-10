@@ -47,7 +47,7 @@ contract UniswapV2Factory is IUniswapV2Factory {
         // plug this hash into the pairFor function in UniswapV2Library.sol
         // note that this bytecode differs from the one in .artifact / remix, why?
 
-        console.log('factory createPair bytecode hash', Strings.toHexString(uint256(keccak256(bytecode))));
+        // console.log('factory createPair bytecode hash', Strings.toHexString(uint256(keccak256(bytecode))));
         // console.log('factory createPair bytecode', bytesToHexString(bytecode));
 
         // create contract at deterministic address: https://www.evm.codes/?fork=shanghai 

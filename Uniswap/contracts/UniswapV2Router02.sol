@@ -107,12 +107,12 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         uint deadline
     ) external virtual override ensure(deadline) returns (uint amountA, uint amountB, uint liquidity) {
 
-        console.log('## [UniswapV2Router02.addLiquidity] tokenA = ', tokenA);
+        // console.log('## [UniswapV2Router02.addLiquidity] tokenA = ', tokenA);
 
         // get amount 
         (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
 
-        console.log('## [UniswapV2Router02.addLiquidity] 2', amountA, amountB);
+        // console.log('## [UniswapV2Router02.addLiquidity] 2', amountA, amountB);
 
 
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);

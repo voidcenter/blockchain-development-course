@@ -11,11 +11,8 @@ import "hardhat/console.sol";
 
 
 contract MyFlashloaner is IUniswapV2Callee {
-    address immutable factory;
 
-    constructor(address _factory) {
-        factory = _factory;
-    }
+    constructor() { }
 
     // gets tokens/WETH via a V2 flash swap, swaps for the ETH/tokens on V1, repays V2, and keeps the rest!
     function uniswapV2Call(address sender, uint amount0Out, uint amount1Out, bytes calldata data) external override {

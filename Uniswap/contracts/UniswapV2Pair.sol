@@ -30,6 +30,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     // prevent reentrancy 
     uint private unlocked = 1;
     modifier lock() {
+        console.log('## [UniswapV2Pair.lock] unlocked = ', unlocked, token0, token1);
         require(unlocked == 1, 'UniswapV2: LOCKED');
         unlocked = 0;
         _;
@@ -167,6 +168,9 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
             // send the out amounts
             if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
             if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
+
+            console.log('## [UniswapV2Pair.swap] transfer', token0, amount0Out);
+            console.log('## [UniswapV2Pair.swap] transfer', token1, amount1Out);
 
             // call callback, this is only useful for flashloan
             if (data.length > 0) IUniswapV2Callee(to).uniswapV2Call(msg.sender, amount0Out, amount1Out, data);

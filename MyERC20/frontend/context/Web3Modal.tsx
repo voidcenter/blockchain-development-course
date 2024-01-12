@@ -5,7 +5,6 @@ import { createWeb3Modal, defaultWagmiConfig } from '@web3modal/wagmi/react'
 import { WagmiConfig } from 'wagmi'
 import { sepolia, mainnet } from 'viem/chains'
 
-
 // Get projectId
 // https://cloud.walletconnect.com/app/project?uuid=665412c9-1983-4dd4-9287-db8fc0e28069
 const projectId = 'd72f1e6c7cb9b25f743a76288fe68cd7'

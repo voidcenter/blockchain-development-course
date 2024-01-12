@@ -1,2 +1,6 @@
-# ntu-sc6107-code
-Code for SC6107
+# Blockchain Development Course
+
+Module 1: ERC20 
+
+Module 2: Uniswap V2 
+

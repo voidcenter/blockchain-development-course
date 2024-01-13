@@ -1,0 +1,7 @@
+{
+    "token0Addr": "0xe06b6809ac256e427b50133c2b67f890e3a5c1e0",
+    "token1Addr": "0x37c104b08242a3cc9860f990b20206632bae15d9",
+    "factoryAddr": "0x766d24d59962e6cffc1a7aec7f8a76d7b7598a1d",
+    "pairAddr": "0x20b51B66F859206EEFF70E01Ba1F2cAB36Fc307F",
+    "routerAddr": "0x71Bf658b49d2876d73FEbf8c250a8A27852f7fC9"
+}

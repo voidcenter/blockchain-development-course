@@ -4,6 +4,7 @@ import { UniswapV2Pair } from "../typechain-types/UniswapV2Pair";
 import { UniswapV2Factory } from "../typechain-types/UniswapV2Factory";
 import { MyERC20TokenOZ } from "../typechain-types";
 import { UniswapV2Router02 } from "../typechain-types/UniswapV2Router02";
+import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 const { expect } = require("chai");
 
 
@@ -37,7 +38,7 @@ const PairIndices = [
 
 
 interface TestContext {
-    owner: any;
+    owner: HardhatEthersSigner;
     tokens: MyERC20TokenOZ[];
     factory: UniswapV2Factory;
     pairs: UniswapV2Pair[][];

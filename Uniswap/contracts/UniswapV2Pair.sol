@@ -30,7 +30,6 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     // prevent reentrancy 
     uint private unlocked = 1;
     modifier lock() {
-        console.log('## [UniswapV2Pair.lock] unlocked = ', unlocked, token0, token1);
         require(unlocked == 1, 'UniswapV2: LOCKED');
         unlocked = 0;
         _;
@@ -111,8 +110,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         emit Mint(msg.sender, amount0, amount1);
     }
 
-    // this low-level function should be called from a contract which performs important safety checks
-    // Note: you can still call it directly, just less safe
+    // you can call this functthis directly or through the router
     function burn(address to) external lock returns (uint amount0, uint amount1) {
         address _token0 = token0;                                // gas savings
         address _token1 = token1;                                // gas savings
@@ -125,7 +123,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         uint liquidity = balanceOf[address(this)];
 
         // total LP token supply
-        uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
+        uint _totalSupply = totalSupply; 
 
         // calculate amount to release pro-rata (*) 
         amount0 = liquidity.mul(balance0) / _totalSupply; // using balances ensures pro-rata distribution
@@ -152,9 +150,6 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         require(amount0Out > 0 || amount1Out > 0, 'UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT');
         (uint112 _reserve0, uint112 _reserve1) = getReserves(); // gas savings
 
-        console.log('## [UniswapV2Pair.swap] _reserve0 = ', _reserve0, '_reserve1 = ', _reserve1);
-        console.log('## [UniswapV2Pair.swap] amount0Out = ', amount0Out, 'amount1Out = ', amount1Out);
-
         require(amount0Out < _reserve0 && amount1Out < _reserve1, 'UniswapV2: INSUFFICIENT_LIQUIDITY');
 
         uint balance0;
@@ -168,9 +163,6 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
             // send the out amounts
             if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
             if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
-
-            console.log('## [UniswapV2Pair.swap] transfer', token0, amount0Out);
-            console.log('## [UniswapV2Pair.swap] transfer', token1, amount1Out);
 
             // call callback, this is only useful for flashloan
             if (data.length > 0) IUniswapV2Callee(to).uniswapV2Call(msg.sender, amount0Out, amount1Out, data);

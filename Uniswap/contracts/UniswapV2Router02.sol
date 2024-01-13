@@ -42,16 +42,9 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
 
     // The sender specifies the desired amount of tokens to contribute (more like max)
     // and the minimal contribution 
-    function _addLiquidity(
-        address tokenA,
-        address tokenB,
-        uint amountADesired,
-        uint amountBDesired,
-        uint amountAMin,
-        uint amountBMin
+    function _addLiquidity(address tokenA, address tokenB, 
+        uint amountADesired, uint amountBDesired, uint amountAMin, uint amountBMin
     ) internal virtual returns (uint amountA, uint amountB) {
-
-        // console.log('1');
 
         // create the pair if it doesn't exist yet
         if (IUniswapV2Factory(factory).getPair(tokenA, tokenB) == address(0)) {
@@ -59,36 +52,28 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
             IUniswapV2Factory(factory).createPair(tokenA, tokenB);
         }
 
-        // console.log('2');
-        // Get the pair's current token reserves
         (uint reserveA, uint reserveB) = UniswapV2Library.getReserves(factory, tokenA, tokenB);
-
-        // console.log('3', reserveA, reserveB);
-
 
         // determine how much the sender needs to contribute. such contribution should not 
         // change the ratio between the two tokens 
         if (reserveA == 0 && reserveB == 0) {
-
             (amountA, amountB) = (amountADesired, amountBDesired);
         } else {
 
             // if the sender contributes amountADesired tokenA, how much tokenB should be contributed? 
             uint amountBOptimal = UniswapV2Library.quote(amountADesired, reserveA, reserveB);
 
-            // if the tokenB amount falls into the sender's specified range, anchroing on amountADesired
+            // check if the calculated tokenB amount falls into the sender's specified range
             if (amountBOptimal <= amountBDesired) {
-
-                // more like "amountBMin too high", not really insufficient amount 
                 require(amountBOptimal >= amountBMin, 'UniswapV2Router: INSUFFICIENT_B_AMOUNT');
                 (amountA, amountB) = (amountADesired, amountBOptimal);
 
-            //  if the tokenA amount falls into the sender's specified range, anchroing on amountBDesired
+            // otherwise check if we can come up with a tokenA amount that falls in range
             } else {
                 uint amountAOptimal = UniswapV2Library.quote(amountBDesired, reserveB, reserveA);
 
-                // Given the above, we know that    amountADesired * reserveB / reserveA > amountBDesired
-                // rearrange we get    amountBDesired * reserveA / reserveB < amountADesired
+                // Given the above, we know that: amountADesired * reserveB / reserveA > amountBDesired
+                // After rearrangeent we get: amountBDesired * reserveA / reserveB < amountADesired
                 assert(amountAOptimal <= amountADesired);
                 require(amountAOptimal >= amountAMin, 'UniswapV2Router: INSUFFICIENT_A_AMOUNT');
                 (amountA, amountB) = (amountAOptimal, amountBDesired);
@@ -107,13 +92,8 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         uint deadline
     ) external virtual override ensure(deadline) returns (uint amountA, uint amountB, uint liquidity) {
 
-        // console.log('## [UniswapV2Router02.addLiquidity] tokenA = ', tokenA);
-
         // get amount 
         (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
-
-        // console.log('## [UniswapV2Router02.addLiquidity] 2', amountA, amountB);
-
 
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
 
@@ -138,8 +118,6 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
     ) public virtual override ensure(deadline) returns (uint amountA, uint amountB) {
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
 
-        // console.log('## [UniswapV2Router02.removeLiquidity] liquidty = ', liquidity, 'pair = ', pair);
-
         // burn those LP tokens from the sender 
         IUniswapV2ERC20(pair).transferFrom(msg.sender, pair, liquidity); // send liquidity to pair
         (uint amount0, uint amount1) = IUniswapV2Pair(pair).burn(to);
@@ -156,7 +134,7 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
     function _swap(uint[] memory amounts, address[] memory path, address _to) internal virtual {
         for (uint i; i < path.length - 1; i++) {
 
-            // prepare the two amounrs 
+            // prepare the two amounts 
             (address input, address output) = (path[i], path[i + 1]);
             (address token0,) = UniswapV2Library.sortTokens(input, output);
             uint amountOut = amounts[i + 1];

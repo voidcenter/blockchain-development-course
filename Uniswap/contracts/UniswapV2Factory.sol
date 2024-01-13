@@ -39,16 +39,10 @@ contract UniswapV2Factory is IUniswapV2Factory {
         require(tokenA != tokenB, 'UniswapV2: IDENTICAL_ADDRESSES');
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         require(token0 != address(0), 'UniswapV2: ZERO_ADDRESS');
-        require(getPair[token0][token1] == address(0), 'UniswapV2: PAIR_EXISTS'); // single check is sufficient
+        require(getPair[token0][token1] == address(0), 'UniswapV2: PAIR_EXISTS'); 
 
         bytes memory bytecode = type(UniswapV2Pair).creationCode;
         bytes32 salt = keccak256(abi.encodePacked(token0, token1));
-
-        // plug this hash into the pairFor function in UniswapV2Library.sol
-        // note that this bytecode differs from the one in .artifact / remix, why?
-
-        // console.log('factory createPair bytecode hash', Strings.toHexString(uint256(keccak256(bytecode))));
-        // console.log('factory createPair bytecode', bytesToHexString(bytecode));
 
         // create contract at deterministic address: https://www.evm.codes/?fork=shanghai 
         // bytecode = [32 bytes of code length] [code]
@@ -59,8 +53,6 @@ contract UniswapV2Factory is IUniswapV2Factory {
         }
 
         // setting token0, token1
-        // it can also be designed such that they are passed to the constructor directly
-        // https://ethereum.stackexchange.com/questions/78738/passing-constructor-arguments-to-the-create-assembly-instruction-in-solidity 
         IUniswapV2Pair(pair).initialize(token0, token1);
 
         // record in index
@@ -70,3 +62,15 @@ contract UniswapV2Factory is IUniswapV2Factory {
         emit PairCreated(token0, token1, pair, allPairs.length);
     }
 }
+
+
+        // it can also be designed such that they are passed to the constructor directly
+        // https://ethereum.stackexchange.com/questions/78738/passing-constructor-arguments-to-the-create-assembly-instruction-in-solidity 
+
+
+
+        // plug this hash into the pairFor function in UniswapV2Library.sol
+        // note that this bytecode differs from the one in .artifact / remix, why?
+
+        // console.log('factory createPair bytecode hash', Strings.toHexString(uint256(keccak256(bytecode))));
+        // console.log('factory createPair bytecode', bytesToHexString(bytecode));

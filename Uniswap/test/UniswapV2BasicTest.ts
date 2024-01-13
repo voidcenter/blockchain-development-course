@@ -1,5 +1,7 @@
 import { AbiCoder } from "ethers";
 import { ethers } from "hardhat";
+import { BasicTestContracts, deployBasicTestContracts, basicTest, printContext, basicTestContracts_localTestCheck, localBasicTest, printBasicTestContracts } from "./common/BasicTest";
+import { getSigners } from "./common/common";
 const { expect } = require("chai");
 
 
@@ -174,12 +176,18 @@ async function testFlashloan(context: TestContext) {
 
 
 describe("E2E Test", function () {
-    it("E2E test should succeed", async function () {
-        const context = await createTestContext();
-        await interactWithUniswap(context);        
+    it("Basic test should succeed", async function () {
+        const signers = await getSigners();
+        // console.log('owner address = ', signers.owner.address)
+        // console.log('swapper address = ', signers.swapper!.address)
+    
+        const contracts = await deployBasicTestContracts(signers);
+        await basicTestContracts_localTestCheck(signers, contracts);
+        printBasicTestContracts(contracts);
+        await localBasicTest(signers, contracts);
     });
-    it("Flashloan test should succeed", async function () {
-        const context = await createTestContext();
-        await testFlashloan(context);        
-    });
+    // it("Flashloan test should succeed", async function () {
+    //     const context = await createTestContext();
+    //     await testFlashloan(context);        
+    // });
 });

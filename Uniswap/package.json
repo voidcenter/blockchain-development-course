@@ -7,9 +7,8 @@
   "license": "MIT",
   "scripts": {
     "compile": "npx hardhat compile",
-    "deploy": "npx hardhat run scripts/deploy.ts --network sepolia",
-    "monitor": "npx hardhat run scripts/monitor.ts --network sepolia",
-    "test": "npx hardhat run scripts/test.ts --network sepolia"
+    "basic-test": "npx hardhat run scripts/runBasicTest.ts --network sepolia",
+    "arb-test": "npx hardhat run scripts/runArbTest.ts --network sepolia"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.1",

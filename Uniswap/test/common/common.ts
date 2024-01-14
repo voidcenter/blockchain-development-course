@@ -1,5 +1,8 @@
 import { ethers } from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
+import { UniswapV2Factory } from "../../typechain-types/UniswapV2Factory";
+const util = require('util');
+const exec = util.promisify(require('child_process').exec);
 
 
 // For simplicity, we use 18 for all tokens involved
@@ -70,3 +73,23 @@ export const deployTx = async (txPromise: Promise<any>) => {
 export async function sleep(ms: number) {
     return new Promise( resolve => setTimeout(resolve, ms) );
 }
+
+
+export async function verifyContract(address: string,  initArgsStr: string) {
+    const cmd = `npx hardhat verify --network sepolia ${address} ${initArgsStr}`;
+    console.log(cmd);
+    await exec(cmd);
+};
+
+
+export async function getPairContractFromAddress(pairAddress: string) {
+    const UniswapV2Pair = await ethers.getContractFactory("UniswapV2Pair");
+    return await UniswapV2Pair.attach(pairAddress) as any;
+}
+
+
+export async function getPairContract(factory: UniswapV2Factory, token0: string, token1: string) {
+    const pairAddress = await factory.getPair(token0, token1);
+    return getPairContractFromAddress(pairAddress);
+}
+

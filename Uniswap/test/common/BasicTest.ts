@@ -2,16 +2,14 @@ const { expect } = require("chai");
 import { ethers } from "hardhat";
 import { AbiCoder } from "ethers";
 import * as fs from 'fs';
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
 
 import { UniswapV2Pair } from "../../typechain-types/UniswapV2Pair";
 import { UniswapV2Factory } from "../../typechain-types/UniswapV2Factory";
 import { MyERC20TokenOZ } from "../../typechain-types";
 import { UniswapV2Router02 } from "../../typechain-types/UniswapV2Router02";
-import { DECIMALS, DECIMALS_MULTIPLIER, TEST_TOKEN_INITIAL_SUPPLY } from "./common";
+import { DECIMALS, DECIMALS_MULTIPLIER, TEST_TOKEN_INITIAL_SUPPLY, getPairContract, getPairContractFromAddress } from "./common";
 import { getBigIntAmountFormater, tx, deployTx } from "./common";
-import { Signers, sleep } from "./common";
+import { Signers, verifyContract } from "./common";
 import { FlashloanTest } from "../../typechain-types/contracts/test/FlashloanTest.sol";
 
 
@@ -55,9 +53,7 @@ export async function deployBasicTestContracts(signers: Signers, localTest: bool
     // create pair and deploy router
     console.log('Creating pair for tokenA and tokenB ...');    
     await tx(factory.createPair(tokenA.target, tokenB.target));
-    const pairAddress = await factory.getPair(tokenA.target, tokenB.target);
-    const UniswapV2PairFactory = await ethers.getContractFactory("UniswapV2Pair");
-    const pair = await UniswapV2PairFactory.attach(pairAddress) as any;
+    const pair = await getPairContract(factory, tokenA.target, tokenB.target);
 
     // console.log('pair = ', pair.target);
 
@@ -92,13 +88,6 @@ export function printBasicTestContracts(contracts: BasicTestContracts) {
     console.log('router = ', contracts.router.target);
     console.log('flashloaner = ', contracts.flashloaner!.target);
 }
-
-
-async function verifyContract(address: string,  initArgsStr: string) {
-    const cmd = `npx hardhat verify --network sepolia ${address} ${initArgsStr}`;
-    console.log(cmd);
-    await exec(cmd);
-};
 
 
 export async function verifyBasicTestContracts(contracts: BasicTestContracts) {
@@ -143,8 +132,7 @@ export async function deserializeBasicTestContracts(filename: string): Promise<B
     const UniswapV2Factory = await ethers.getContractFactory("UniswapV2Factory");
     const factory = await UniswapV2Factory.attach(factoryAddr) as any;
 
-    const UniswapV2Pair = await ethers.getContractFactory("UniswapV2Pair");
-    const pair = await UniswapV2Pair.attach(pairAddr) as any;
+    const pair = await getPairContractFromAddress(pairAddr);
 
     const UniswapV2Router02 = await ethers.getContractFactory("UniswapV2Router02");
     const router = await UniswapV2Router02.attach(routerAddr) as any;

@@ -1,4 +1,6 @@
-import { BasicTestContracts, basicTest, deployBasicTestContracts, deserializeBasicTestContracts, flashloanTest, printBasicTestContracts, serializeBasicTestContracts, verifyBasicTestContracts } from "../test/common/BasicTest";
+import { BasicTestContracts, basicTest, deployBasicTestContracts, 
+         deserializeBasicTestContracts, flashloanTest, printBasicTestContracts, 
+         serializeBasicTestContracts, verifyBasicTestContracts } from "../test/common/basicTest";
 import { getSigners } from "../test/common/common";
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
@@ -14,7 +16,7 @@ async function main() {
 
     /* You should only do this occasionally because it costs a lot of gas. 
        You can serialize the addresses to a file and load them later.
-    */ 
+    */
 
     // const contracts = await deployBasicTestContracts(signers);
     // printBasicTestContracts(contracts);

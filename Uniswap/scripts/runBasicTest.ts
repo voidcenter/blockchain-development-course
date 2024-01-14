@@ -1,7 +1,7 @@
-import { ethers } from "hardhat";
-import { BasicTestContracts, deployBasicTestContracts, deserializeBasicTestContracts, printBasicTestContracts, serializeBasicTestContracts } from "../test/common/BasicTest";
-import { Signers, getSigners } from "../test/common/common";
-
+import { BasicTestContracts, basicTest, deployBasicTestContracts, deserializeBasicTestContracts, flashloanTest, printBasicTestContracts, serializeBasicTestContracts, verifyBasicTestContracts } from "../test/common/BasicTest";
+import { getSigners } from "../test/common/common";
+const util = require('util');
+const exec = util.promisify(require('child_process').exec);
 
 const BASIC_TEST_CONTRACTS_ADDRESSES_JSON_FILE = './misc/basicTestContracts.json';
 
@@ -19,12 +19,13 @@ async function main() {
     // const contracts = await deployBasicTestContracts(signers);
     // printBasicTestContracts(contracts);
     // serializeBasicTestContracts(contracts, BASIC_TEST_CONTRACTS_ADDRESSES_JSON_FILE);
+    // await verifyBasicTestContracts(contracts);
 
     const contracts = await deserializeBasicTestContracts(BASIC_TEST_CONTRACTS_ADDRESSES_JSON_FILE);
     printBasicTestContracts(contracts);
 
-    
-    
+    // await basicTest(signers, contracts);
+    await flashloanTest(signers, contracts);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

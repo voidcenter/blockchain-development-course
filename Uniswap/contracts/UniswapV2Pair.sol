@@ -184,7 +184,8 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
 
             // after deducting 0.3% fee, k is constant (*)
             // k increases a little bit due to 0.3% fee 
-            require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(1000**2), 'UniswapV2: K');
+            require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(1000**2), 
+                    'UniswapV2: K');
         }
 
         _update(balance0, balance1);

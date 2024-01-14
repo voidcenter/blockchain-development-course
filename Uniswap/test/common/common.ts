@@ -65,3 +65,8 @@ export const tx = async (txPromise: Promise<any>) => {
 export const deployTx = async (txPromise: Promise<any>) => {
     return await (await txPromise).waitForDeployment();
 }
+
+
+export async function sleep(ms: number) {
+    return new Promise( resolve => setTimeout(resolve, ms) );
+}

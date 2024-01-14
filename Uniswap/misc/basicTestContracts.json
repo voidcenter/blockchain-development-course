@@ -1,7 +1,8 @@
 {
-    "token0Addr": "0xe06b6809ac256e427b50133c2b67f890e3a5c1e0",
-    "token1Addr": "0x37c104b08242a3cc9860f990b20206632bae15d9",
-    "factoryAddr": "0x766d24d59962e6cffc1a7aec7f8a76d7b7598a1d",
-    "pairAddr": "0x20b51B66F859206EEFF70E01Ba1F2cAB36Fc307F",
-    "routerAddr": "0x71Bf658b49d2876d73FEbf8c250a8A27852f7fC9"
+    "tokenAAddr": "0x8a4Ae59bD4385A6db27A4B60680e44A3A12ec6b0",
+    "tokenBAddr": "0xD3A7c617d49a0cC84A11AbF5082290A729e3A471",
+    "factoryAddr": "0x48FC61eD4842BdeC1472b5967d0b470aDc91D0Eb",
+    "pairAddr": "0x043F1ab17CD4DeB2A2b88c5d08Cc6DE23C7df81B",
+    "routerAddr": "0x852a2B86C45245867b286389A001F9c003ab3c3a",
+    "flashloanerAddr": "0x391838c6c14147189F2B1cC6EFc6bDb283F61393"
 }

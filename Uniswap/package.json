@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "compile": "npx hardhat compile",
-    "basic-test": "npx hardhat run scripts/basicTest.ts --network sepolia"
+    "basic-test": "npx hardhat run scripts/runBasicTest.ts --network sepolia"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.1",

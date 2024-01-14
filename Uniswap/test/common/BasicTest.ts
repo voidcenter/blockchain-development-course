@@ -7,7 +7,7 @@ import { UniswapV2Pair } from "../../typechain-types/UniswapV2Pair";
 import { UniswapV2Factory } from "../../typechain-types/UniswapV2Factory";
 import { MyERC20TokenOZ } from "../../typechain-types";
 import { UniswapV2Router02 } from "../../typechain-types/UniswapV2Router02";
-import { DECIMALS, DECIMALS_MULTIPLIER, TEST_TOKEN_INITIAL_SUPPLY, getPairContract, getPairContractFromAddress } from "./common";
+import { DECIMALS, DECIMALS_MULTIPLIER, TEST_TOKEN_INITIAL_SUPPLY, getPairContract, getPairContractFromAddress, waitForDeployTxs, waitForTxs } from "./common";
 import { getBigIntAmountFormater, tx, deployTx } from "./common";
 import { Signers, verifyContract } from "./common";
 import { FlashloanTest } from "../../typechain-types/contracts/test/FlashloanTest.sol";
@@ -30,35 +30,58 @@ export async function deployBasicTestContracts(signers: Signers, localTest: bool
 
     const { owner, swapper } = signers;
     console.log('\n');
+    let deployTxs;
+    let txs;
 
     // deploy token0, token1, factory
+    deployTxs = [];
     console.log('Deploying tokenA contract...');    
-    const tokenA = await deployTx(ethers.deployContract("MyERC20TokenOZ", ["TokenA", "TA", DECIMALS, TEST_TOKEN_INITIAL_SUPPLY]));
+    deployTxs.push(await ethers.deployContract("MyERC20TokenOZ", ["TokenA", "TA", DECIMALS, TEST_TOKEN_INITIAL_SUPPLY]));
 
     console.log('Deploying tokenB contract...');    
-    const tokenB = await deployTx(ethers.deployContract("MyERC20TokenOZ", ["TokenB", "TB", DECIMALS, TEST_TOKEN_INITIAL_SUPPLY]));
+    deployTxs.push(await ethers.deployContract("MyERC20TokenOZ", ["TokenB", "TB", DECIMALS, TEST_TOKEN_INITIAL_SUPPLY]));
 
     console.log('Deploying factory contract...');    
-    const factory = await deployTx(ethers.deployContract("UniswapV2Factory", []));
+    deployTxs.push(await ethers.deployContract("UniswapV2Factory", []));
+
+    const [tokenA, tokenB, factory] = await waitForDeployTxs(deployTxs) as [MyERC20TokenOZ, MyERC20TokenOZ, UniswapV2Factory];
 
     // console.log('token0 = ', token0.target);
     // console.log('token1 = ', token1.target);
     // console.log('factory = ', factory.target);
 
+    // Deploy router and flashloaner, create pair
     console.log('Deploying router contract ...');    
-    const router = await deployTx(ethers.deployContract("UniswapV2Router02", [factory.target]));
-
-    // console.log('router = ', router.target);
-
-    // create pair and deploy router
-    console.log('Creating pair for tokenA and tokenB ...');    
-    await tx(factory.createPair(tokenA.target, tokenB.target));
-    const pair = await getPairContract(factory, tokenA.target, tokenB.target);
-
-    // console.log('pair = ', pair.target);
+    deployTxs = [];
+    deployTxs.push(await ethers.deployContract("UniswapV2Router02", [factory.target]));
 
     console.log('Deploying FlashloanTest contract...');
-    const flashloaner = await deployTx(ethers.deployContract("FlashloanTest", []));
+    deployTxs.push(await ethers.deployContract("FlashloanTest", []));
+
+    console.log('Creating pair for tokenA and tokenB ...');    
+    txs = [];
+    txs.push(await factory.createPair(tokenA.target, tokenB.target));
+
+    const [router, flashloaner] = await waitForDeployTxs(deployTxs) as [UniswapV2Router02, FlashloanTest];
+    await waitForTxs(txs);
+
+    const pair = await getPairContract(factory, tokenA.target, tokenB.target);
+
+    // console.log('router = ', router.target);
+    // console.log('flashloaner = ', flashloaner.target);
+    // console.log('pair = ', pair.target);
+
+    // Approve the router to transfer tokens from owner and swapper
+    // This is to simplify test. In practice, you should not do this because it is not safe.
+    console.log('Approving the router to transfer tokenA, tokenB and liquidity token from owner ...')
+    console.log('Approving the router to transfer tokenA from swapper ...')
+    await waitForTxs([
+        await tokenA.approve(router.target, TEST_TOKEN_INITIAL_SUPPLY),
+        await tokenB.approve(router.target, TEST_TOKEN_INITIAL_SUPPLY),
+        await pair.approve(router.target, TEST_TOKEN_INITIAL_SUPPLY),
+        await tokenA.connect(swapper).approve(router.target, TEST_TOKEN_INITIAL_SUPPLY),
+    ]);
+    
 
     if (localTest) {    
         expect(await tokenA.totalSupply()).to.equal(await tokenA.balanceOf(owner.address));
@@ -80,24 +103,26 @@ export async function deployBasicTestContracts(signers: Signers, localTest: bool
 
 
 export function printBasicTestContracts(contracts: BasicTestContracts) {
+    const { tokenA, tokenB, factory, pair, router, flashloaner } = contracts;
     console.log('\n** context **');
-    console.log('tokenA = ', contracts.tokenA.target);
-    console.log('tokenB = ', contracts.tokenB.target);
-    console.log('factory = ', contracts.factory.target);
-    console.log('pair = ', contracts.pair.target);
-    console.log('router = ', contracts.router.target);
-    console.log('flashloaner = ', contracts.flashloaner!.target);
+    console.log('tokenA = ', tokenA.target);
+    console.log('tokenB = ', tokenB.target);
+    console.log('factory = ', factory.target);
+    console.log('pair = ', pair.target);
+    console.log('router = ', router.target);
+    console.log('flashloaner = ', flashloaner.target);
 }
 
 
 export async function verifyBasicTestContracts(contracts: BasicTestContracts) {
+    const { tokenA, tokenB, factory, pair, router, flashloaner } = contracts;
     console.log('Verifying contracts ...');
-    await verifyContract(contracts.tokenA.target as string, `"TokenA" "TA" ${DECIMALS.toString()} ${TEST_TOKEN_INITIAL_SUPPLY.toString()}`);
-    await verifyContract(contracts.tokenB.target as string, `"TokenB" "TB" ${DECIMALS.toString()} ${TEST_TOKEN_INITIAL_SUPPLY.toString()}`);
-    await verifyContract(contracts.factory.target as string, '');
-    await verifyContract(contracts.pair.target as string, '');
-    await verifyContract(contracts.router.target as string, contracts.factory.target as string);
-    await verifyContract(contracts.flashloaner!.target as string, '');
+    await verifyContract(tokenA.target, `"TokenA" "TA" ${DECIMALS.toString()} ${TEST_TOKEN_INITIAL_SUPPLY.toString()}`);
+    await verifyContract(tokenB.target, `"TokenB" "TB" ${DECIMALS.toString()} ${TEST_TOKEN_INITIAL_SUPPLY.toString()}`);
+    await verifyContract(factory.target, '');
+    await verifyContract(pair.target, '');
+    await verifyContract(router.target, factory.target as string);
+    await verifyContract(flashloaner!.target, '');
 }
 
 
@@ -105,14 +130,14 @@ export async function verifyBasicTestContracts(contracts: BasicTestContracts) {
 
 // serialize basic test contracts addresses to a file
 export function serializeBasicTestContracts(contracts: BasicTestContracts, filename: string) {
-    const { tokenA, tokenB, factory, pair, router } = contracts;
+    const { tokenA, tokenB, factory, pair, router, flashloaner } = contracts;
     const context = {
         tokenAAddr: tokenA.target,
         tokenBAddr: tokenB.target,
         factoryAddr: factory.target,
         pairAddr: pair.target,
         routerAddr: router.target,
-        flashloaner: contracts.flashloaner!.target,
+        flashloanerAddr: flashloaner.target,
     };
     fs.writeFileSync(filename, JSON.stringify(context));
 }
@@ -156,13 +181,15 @@ export async function basicTest(signers: Signers, contracts: BasicTestContracts,
 
 
     /* add liquidity */
-    console.log('\n** add liquidity **');
     const time_in_the_future = Date.now() + 1000000000;
     const stakeAmount = 1000n * DECIMALS_MULTIPLIER;
-    await tx(tokenA.approve(router.target, stakeAmount));
-    await tx(tokenB.approve(router.target, stakeAmount));
+    console.log('\nApproving the router to transfer tokenA and tokenB from owner ...');
+    await waitForTxs([await tokenA.approve(router.target, stakeAmount), 
+                      await tokenB.approve(router.target, stakeAmount)]);
+    console.log('Adding liquidity ...');
     await tx(router.addLiquidity(tokenA.target, tokenB.target, stakeAmount, stakeAmount, 0, 0, owner.address, time_in_the_future));
     
+
     // check staked liquidity
     let liquidity = await pair.balanceOf(owner.address);
     let reserves = await pair.getReserves() as [bigint, bigint];
@@ -178,12 +205,15 @@ export async function basicTest(signers: Signers, contracts: BasicTestContracts,
     }
 
     /* swap */
-    console.log('\n** swap **');
     const tokenAAmountIn = 100n * DECIMALS_MULTIPLIER;
-    await tokenA.transfer(swapper!.address, tokenAAmountIn);   //transfer 100 token0 to swapper
-    await tx(tokenA.connect(swapper).approve(router.target, tokenAAmountIn));  // swapper allows the router to spend 100 token0
+    // //transfer 100 token0 to swapper and allows router to transfer these tokens on behalf of swapper
+    console.log('\nSend some tokenA to swapper and approve router to transfer them ... ');
+    await waitForTxs([await tokenA.transfer(swapper!.address, tokenAAmountIn),   
+                      await tokenA.connect(swapper).approve(router.target, tokenAAmountIn)]);  
+    console.log('Swapping ... ');
     await tx(router.connect(swapper).swapExactTokensForTokens
         (tokenAAmountIn, 0, [tokenA.target, tokenB.target], swapper!.address, time_in_the_future));
+
 
     // check swapped amount 
     let tokenBAmountOut = await tokenB.balanceOf(swapper!.address);
@@ -198,17 +228,20 @@ export async function basicTest(signers: Signers, contracts: BasicTestContracts,
     }
 
     /* remove liquidity */
-    console.log('\n** remove liquidity **');
-    const ownerToken0 = await tokenA.balanceOf(owner.address);
-    const ownerToken1 = await tokenB.balanceOf(owner.address);
+    console.log('\nApproving the router to transfer liquidity tokens from owner ...');
     await tx(pair.approve(router.target, liquidity));
+    console.log('Removing liquidity ...');
     await tx(router.removeLiquidity
         (tokenA.target, tokenB.target, liquidity, 0, 0, owner.address, time_in_the_future));
+
+
+    // check removed liquidity
+    const ownerToken0 = await tokenA.balanceOf(owner.address);
+    const ownerToken1 = await tokenB.balanceOf(owner.address);
     console.log('owner redeemed', fmt(liquidity), 'liquidity tokens');
     console.log('in turn, owner got', fmt(await tokenA.balanceOf(owner.address) - ownerToken0), 'token0 and',  
                 fmt(await tokenB.balanceOf(owner.address) - ownerToken1), 'token1');
 
-    // check removed liquidity
     reserves = await pair.getReserves() as [bigint, bigint];
     console.log('pair reserves: token0 = ', fmt(reserves[0]), 'token1 = ', fmt(reserves[1])); 
     console.log('pair liquidity tokens totalSupply = ', fmt(await pair.totalSupply()));
@@ -227,27 +260,20 @@ export async function flashloanTest(signers: Signers, contracts: BasicTestContra
 
     const { owner } = signers;
     const { tokenA, tokenB, pair, router, flashloaner } = contracts;
+    const fmt = getBigIntAmountFormater(DECIMALS);
 
     const time_in_the_future = Date.now() + 1000000000;
     const stakeAmount = 1000n * DECIMALS_MULTIPLIER;
 
+    console.log('Approving the router to transfer tokenA and tokenB from Staking liquidity to pair ...');
+    await waitForTxs([await tokenA.approve(router.target, stakeAmount),             // for staking tokenA
+                      await tokenB.approve(router.target, stakeAmount),             // for staking tokenB
+                      await tokenA.transfer(flashloaner.target, stakeAmount),       // for flashloaner to repay tokenA
+                      await tokenB.transfer(flashloaner.target, stakeAmount)]);     // for flashloaner to repay tokenB
     console.log('Staking liquidity to pair ...');
-    await tx(tokenA.approve(router.target, stakeAmount));
-    await tx(tokenB.approve(router.target, stakeAmount));
     await tx(router.addLiquidity(tokenA.target, tokenB.target, stakeAmount, stakeAmount, 0, 0, owner.address, time_in_the_future));
 
     // flashloan
-    // console.log('\n** flashloan **');
-
-    // // create testing flashloaner
-
-    // If this fails, simply retry in the command line
-    // It probably failed because etherscan has not caught up yet. 
-    // await verifyContract(flashloaner.target as string, '');
-
-
-    await tokenA.transfer(flashloaner!.target, stakeAmount);   //transfer 1000 tokenA to flashloaner
-    await tokenB.transfer(flashloaner!.target, stakeAmount);   //transfer 1000 tokenB to flashloaner
 
     // /*
     //     We are demonstrating flashloan here with over-repayment. This means that we borrow 1000 tokens and later repay
@@ -262,10 +288,12 @@ export async function flashloanTest(signers: Signers, contracts: BasicTestContra
     // flashloan, note that we are calling the pair directly
     console.log('Sending flashloan request ...');
     const abi = AbiCoder.defaultAbiCoder();
-    await pair.swap(
-        stakeAmount / 2n,        // only borrow token0
+    const loanAmount = stakeAmount / 2n;
+    await tx(pair.swap(
+        loanAmount,        // only borrow token0
         0,
         flashloaner.target,
-        abi.encode(['uint'], [123n])
-      )    
+        abi.encode(['uint'], [123n])));
+    console.log(`Borrowed ${fmt(loanAmount)} tokenA without collateral ...`);
 }
+

@@ -8,7 +8,7 @@ import { UniswapV2Factory } from "../../typechain-types/UniswapV2Factory";
 import { ArbitrageTest, MyERC20TokenOZ } from "../../typechain-types";
 import { UniswapV2Router02 } from "../../typechain-types/UniswapV2Router02";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { DECIMALS, DECIMALS_MULTIPLIER, Signers, TEST_TOKEN_INITIAL_SUPPLY, deployTx, getBigIntAmountFormater, getPairContract, getPairContractFromAddress, tx, verifyContract } from "./common";
+import { DECIMALS, DECIMALS_MULTIPLIER, Signers, TEST_TOKEN_INITIAL_SUPPLY, deployTx, getBigIntAmountFormater, getPairContract, getPairContractFromAddress, tx, verifyContract, waitForDeployTxs, waitForTxs } from "./common";
 import { experimentalAddHardhatNetworkMessageTraceHook } from 'hardhat/config';
 
 
@@ -62,20 +62,12 @@ const PairTokenIndices = [
 */
 
 // before mulitiplying with DECIMALS_MULTIPLIER
-const PairLiquidities = [
+const PairLiquidity = [
     [1000n, 2000n],
     [1000n, 1000n],
     [1500n, 1000n],
     [2000n, 2000n]
 ]
-// const PairLiquidities = [
-//     [1000n, 1800n],
-//     [900n, 1000n],
-//     [1500n, 900n],
-//     [2000n, 2000n]
-// ]
-const STAKING_ALLOWANCE = 10000n * DECIMALS_MULTIPLIER;
-
 
 
 interface ArbitrageTestContracts {
@@ -92,38 +84,71 @@ export async function deployArbitrageTestContracts(signers: Signers, localTest: 
     console.log("\n\n");
 
     const { owner } = signers;
+    let txs;
+    let deployTxs;
 
 
-    // Deploy tokens, factory, router
+    // Deploy tokens and factory
     console.log('Deploying testing tokens ...');
-    const tokens: MyERC20TokenOZ[] = [];
+    deployTxs = [];
     for (let i = 0; i < NUM_TEST_TOKENS; i++) {
         console.log(`Deploying token: ArbTestToken[${i}] ...`);
-        tokens.push(await deployTx(ethers.deployContract
-            ("MyERC20TokenOZ", [`ArbTestToken[${i}]`, `ATT[${i}]`, DECIMALS, TEST_TOKEN_INITIAL_SUPPLY])));
+        deployTxs.push(await ethers.deployContract
+            ("MyERC20TokenOZ", [`ArbTestToken[${i}]`, `ATT[${i}]`, DECIMALS, TEST_TOKEN_INITIAL_SUPPLY]));
     }
-
+    
     console.log('Deploying factory contract ...');
-    const factory = await deployTx(ethers.deployContract("UniswapV2Factory", []));
+    deployTxs.push(await ethers.deployContract("UniswapV2Factory", []));
 
+    const cs = await waitForDeployTxs(deployTxs);
+    const tokens = cs.slice(0, cs.length - 1) as MyERC20TokenOZ[];
+    const factory = cs[cs.length - 1] as UniswapV2Factory;
+
+
+    // Deploy router and create pairs 
     console.log('Deploying router contract ...');    
-    const router = await deployTx(ethers.deployContract("UniswapV2Router02", [factory.target]));
+    deployTxs = [];
+    deployTxs.push(await ethers.deployContract("UniswapV2Router02", [factory.target]));
 
-
-    // creating pairs
     console.log('Creating testing pairs ...');    
-    const pairs: UniswapV2Pair[] = [];
+    txs = [];
     for (let pairInd = 0; pairInd < PairTokenIndices.length; pairInd++) {
         const [i, j] = PairTokenIndices[pairInd];
         console.log(`Creating testing pair for ArbTestToken[${i}] and ArbTestToken[${j}] ...`);
-        await tx(factory.createPair(tokens[i].target, tokens[j].target));
-        pairs.push(await getPairContract(factory, tokens[i].target as string, tokens[j].target as string));
+        txs.push(await factory.createPair(tokens[i].target, tokens[j].target));
     };
 
+    const [router] = (await waitForDeployTxs(deployTxs)) as [UniswapV2Router02];
+    await waitForTxs(txs);
 
-    // Deploy arbitrageur
+    const pairs = await Promise.all(PairTokenIndices.map(async ([i, j]) => {
+        return await getPairContract(factory, tokens[i].target, tokens[j].target);
+    }));
+
+
+    // Deploy arbitrageur and approve router to transfer tokens
     console.log('Deploying arbitraguer contract ...');    
-    const arbitrageur = await deployTx(ethers.deployContract("ArbitrageTest", [factory.target, router.target]));
+    deployTxs = [];
+    deployTxs.push(await ethers.deployContract("ArbitrageTest", [factory.target, router.target]));
+
+    // Approve router to transfer owner's tokens: testing tokens and liquidity tokens
+    // This saves the effort to repeatedly approve the router to transfer tokens
+    // In practice, you should not do this as this is not secure.
+    console.log('Approving the router to transfer tokens ...');
+    txs = [];
+    for (let i = 0; i < tokens.length; i++) {
+        console.log(`Approving router to transfer token ArbTestToken[${i}] from owner ...`);
+        // approve to transfer the entire circulation 
+        txs.push(await tokens[i].approve(router.target, TEST_TOKEN_INITIAL_SUPPLY));
+    };
+    for (let i = 0; i < pairs.length; i++) {
+        console.log(`Approving router to transfer liquidity token of pair ${pairs[i].target} from owner ...`);
+        // approve to transfer a big number which should be higher than the pair's liquidity token circulation
+        txs.push(await pairs[i].approve(router.target, TEST_TOKEN_INITIAL_SUPPLY));
+    }
+
+    const [arbitrageur] = (await waitForDeployTxs(deployTxs)) as [ArbitrageTest];
+    await waitForTxs(txs);
 
 
     if (localTest) {            
@@ -156,20 +181,21 @@ export function printArbitrageTestContracts(contracts: ArbitrageTestContracts) {
 }
 
 
+// Promise.all seems to throw errors, maybe etherscan has some kind of rate limiting.
 export async function verifyArbitrageTestContracts(contracts: ArbitrageTestContracts) {
     console.log('Verifying contracts ...');
     const { tokens, factory, pairs, router, arbitrageur } = contracts;
 
     for (let i = 0; i < tokens.length; i++) {
         const initArgsStr = `"ArbTestToken[${i}]" "ATT[${i}]" ${DECIMALS.toString()} ${TEST_TOKEN_INITIAL_SUPPLY.toString()}`;
-        await verifyContract(tokens[i].target as string, initArgsStr);
+        await verifyContract(tokens[i].target, initArgsStr);
     }
-    await verifyContract(factory.target as string, '');
+    await verifyContract(factory.target, '');
     for (let i = 0; i < pairs.length; i++) {
-        await verifyContract(pairs[i].target as string, '');
+        await verifyContract(pairs[i].target, '');
     }
-    await verifyContract(router.target as string, contracts.factory.target as string);
-    await verifyContract(arbitrageur.target as string, `${factory.target} ${router.target}`);
+    await verifyContract(router.target, contracts.factory.target as string);
+    await verifyContract(arbitrageur.target, `${factory.target} ${router.target}`);
 }
 
 
@@ -225,6 +251,7 @@ export async function arbitrageTest(signers: Signers, contracts: ArbitrageTestCo
 
     const time_in_the_future = Date.now() + 1000000000;
     const fmt = getBigIntAmountFormater(DECIMALS);
+    let txs;
 
     console.log('\n** tokens **');
     tokens.forEach((token, i) => {
@@ -238,42 +265,39 @@ export async function arbitrageTest(signers: Signers, contracts: ArbitrageTestCo
     }));
 
 
+    /* Reseeting the pairs by removing liquidity */
 
-    /* try cleaning up liquiity first */
     // If no one else have used the contracts, this should rest the pairs.
     // Then we can stake liquidity to test the arbitrage with profit. 
     // If we do not clean up liquidity, the arbitrage might not be profitable.
     // If other people have used the contracts, then this might not work. 
     // In that case, it is best to redeploy.
-    console.log('\nCleaning up liquidity ...');
+    console.log('\nResetting the pairs by draining liquidity ...');
 
+    txs = [];
     for (let pairInd = 0; pairInd < pairs.length; pairInd++) {
         const pair = pairs[pairInd];
-        const [i, j] = PairTokenIndices[pairInd];
         if (await pair.totalSupply() == 0n) {
             continue;
         }
-        console.log(`Cleaning up liquidity for pair ${pair.target} which trades ArbTestToken[${i}] and ArbTestToken[${j}] ...`);
+        const [i, j] = PairTokenIndices[pairInd];
         const liquidity = await pair.balanceOf(owner.address);
-        await tx(pair.approve(router.target, liquidity)); 
-        await tx(router.removeLiquidity(pair.token0(), pair.token1(), liquidity, 0, 0, owner.address, time_in_the_future));
+        console.log(`Cleaning up liquidity for pair ${pair.target} which trades ArbTestToken[${i}] and ArbTestToken[${j}] ...`);
+        txs.push(await router.removeLiquidity(pair.token0(), pair.token1(), liquidity, 0, 0, owner.address, time_in_the_future));
     }
+    await waitForTxs(txs);
 
 
     /* staking liquidity */
 
-    console.log('\nApproving to transfer tokens ...');
-    for (let i = 0; i < tokens.length; i++) {
-        console.log(`Approving to transfer token ArbTestToken[${i}]...`);
-        await tx(tokens[i].approve(router.target, STAKING_ALLOWANCE));
-    };
-
     console.log('\nStaking liquidity to the pairs ...');
+
+    txs = [];
     for (let pairInd = 0; pairInd < pairs.length; pairInd++) {
         const pair = pairs[pairInd];
         const [i, j] = PairTokenIndices[pairInd];
-        const [li, lj] = PairLiquidities[pairInd];
-        console.log(`Staking liquidity to paid for ArbTestToken[${i}] and ArbTestToken[${j}]...`);
+        const [li, lj] = PairLiquidity[pairInd];
+        console.log(`Staking liquidity to pair (ArbTestToken[${i}], ArbTestToken[${j}])...`);
 
         // Here we stake liquidity by directly calling the pair contract.
         // This way we have full control of the staked liquidity. 
@@ -285,13 +309,27 @@ export async function arbitrageTest(signers: Signers, contracts: ArbitrageTestCo
         //
         // By calling the pair directly, we can stake [1000000000000000000000, 1000000000000000000000] 
         // liquidity (1:1 ratio) even if the current reserves are [500, 2000]. 
-        await tx(tokens[i].transfer(pair.target, li * DECIMALS_MULTIPLIER));
-        await tx(tokens[j].transfer(pair.target, lj * DECIMALS_MULTIPLIER));
-        await tx(pair.mint(owner.address));
-        // await tx(router.addLiquidity(
-        //     tokens[i].target, tokens[j].target, 
-        //     li * DECIMALS_MULTIPLIER, lj * DECIMALS_MULTIPLIER, 
-        //     0, 0, owner.address, time_in_the_future));
+        txs.push(await tokens[i].transfer(pair.target, li * DECIMALS_MULTIPLIER));
+        txs.push(await tokens[j].transfer(pair.target, lj * DECIMALS_MULTIPLIER));
+    }
+    await waitForTxs(txs);
+
+    txs = [];
+    for (let pairInd = 0; pairInd < pairs.length; pairInd++) {
+        const pair = pairs[pairInd];
+        txs.push(await pair.mint(owner.address));
+    }
+    await waitForTxs(txs);
+
+
+    console.log('pair liqiudity before arbitrage:');
+    for (let pairInd = 0; pairInd < pairs.length; pairInd++) {
+        const pair = pairs[pairInd];
+        const [i, j] = PairTokenIndices[pairInd];
+        const reserves = await pair.getReserves();
+        console.log(`pair (ArbTestToken[${i}], ArbTestToken[${j}]) (${tokens[i].target}, ${tokens[j].target}) liquidity = `, 
+            await pair.token0() === tokens[i].target ? fmt(reserves[0]) : fmt(reserves[1]),
+            await pair.token0() === tokens[i].target ? fmt(reserves[1]) : fmt(reserves[0]));
     }
 
 
@@ -300,7 +338,7 @@ export async function arbitrageTest(signers: Signers, contracts: ArbitrageTestCo
     console.log('\nSending arbitrage request ...');
 
     const abi = AbiCoder.defaultAbiCoder();
-    const pair = await getPairContract(factory, tokens[0].target as string, tokens[3].target as string); 
+    const pair = await getPairContract(factory, tokens[0].target, tokens[3].target); 
     const pairToken0 = await pair.token0(); 
 
     // set amount0/1Out according to whether token0 is token0 in the pair

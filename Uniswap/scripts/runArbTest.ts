@@ -1,4 +1,6 @@
-import { arbitrageTest, deployArbitrageTestContracts, deserializeArbitrageTestContracts, printArbitrageTestContracts, serializeArbitrageTestContracts, verifyArbitrageTestContracts } from "../test/common/arbitrageTest";
+import { arbitrageTest, deployArbitrageTestContracts, deserializeArbitrageTestContracts, 
+         printArbitrageTestContracts, serializeArbitrageTestContracts, verifyArbitrageTestContracts } 
+         from "../test/common/arbitrageTest";
 import { getSigners } from "../test/common/common";
 
 const ARBITRAGE_TEST_CONTRACTS_ADDRESSES_JSON_FILE = './misc/arbitrageTestContracts.json';

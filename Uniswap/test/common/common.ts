@@ -2,6 +2,7 @@ import { ethers } from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { UniswapV2Factory } from "../../typechain-types/UniswapV2Factory";
 import { UniswapV2Pair } from "../../typechain-types/UniswapV2Pair";
+import { Addressable } from "ethers";
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 
@@ -70,13 +71,41 @@ export const deployTx = async (txPromise: Promise<any>) => {
     return await (await txPromise).waitForDeployment();
 }
 
+// When there are multiple txs or deploy txs to be waited, we have to do it this way:
+// 
+// let txs = [];
+// txs.push(await contract1.func1(args));
+// txs.push(await contract2.func2(args));
+// txs.push(await contract3.func3(args));
+// await Promise.all(txs.map(tx => tx.wait()));
+// 
+// We cannot 
+// await Promise.all([
+//     tx(contract1.func1(args)), 
+//     tx(contract2.func2(args)), 
+//     tx(contract3.func3(args))];
+// Because this way, multiple txns might fire simulateously, which will cause nonce error.
+// 
+// This should not be a limitation of the blockchain, but a limitation of how
+// ethers is implemented. Ethers allows us to wait for the settlements of multiple 
+// sumitted txns simulateously, but it does not allow us to submit mutiple txns 
+// simulateously. In theory, the latter should work if there is a lock guarding the nonce.
+// 
+export const waitForTxs = async (txPromises: any[]) => {
+    return await Promise.all(txPromises.map(tx => tx.wait()));
+}
+
+export const waitForDeployTxs = async (txPromises: any[]) => {
+    return await Promise.all(txPromises.map(tx => tx.waitForDeployment()));
+}
+
 
 export async function sleep(ms: number) {
     return new Promise( resolve => setTimeout(resolve, ms) );
 }
 
 
-export async function verifyContract(address: string,  initArgsStr: string) {
+export async function verifyContract(address: string | Addressable,  initArgsStr: string) {
     const cmd = `npx hardhat verify --network sepolia ${address} ${initArgsStr}`;
     console.log(cmd);
     await exec(cmd);
@@ -89,7 +118,10 @@ export async function getPairContractFromAddress(pairAddress: string): Promise<U
 }
 
 
-export async function getPairContract(factory: UniswapV2Factory, token0: string, token1: string): Promise<UniswapV2Pair> {
+export async function getPairContract
+    (factory: UniswapV2Factory, token0: string | Addressable, token1: string | Addressable): 
+    Promise<UniswapV2Pair> {
+        
     const pairAddress = await factory.getPair(token0, token1);
     return getPairContractFromAddress(pairAddress);
 }

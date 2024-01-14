@@ -92,14 +92,12 @@ export function printBasicTestContracts(contracts: BasicTestContracts) {
 
 export async function verifyBasicTestContracts(contracts: BasicTestContracts) {
     console.log('Verifying contracts ...');
-    await Promise.all([
-        verifyContract(contracts.tokenA.target as string, `"TokenA" "TA" ${DECIMALS.toString()} ${TEST_TOKEN_INITIAL_SUPPLY.toString()}`),
-        verifyContract(contracts.tokenB.target as string, `"TokenB" "TB" ${DECIMALS.toString()} ${TEST_TOKEN_INITIAL_SUPPLY.toString()}`),
-        verifyContract(contracts.factory.target as string, ''),
-        verifyContract(contracts.pair.target as string, ''),
-        verifyContract(contracts.router.target as string, contracts.factory.target as string),
-        verifyContract(contracts.flashloaner!.target as string, ''),
-    ]);
+    await verifyContract(contracts.tokenA.target as string, `"TokenA" "TA" ${DECIMALS.toString()} ${TEST_TOKEN_INITIAL_SUPPLY.toString()}`);
+    await verifyContract(contracts.tokenB.target as string, `"TokenB" "TB" ${DECIMALS.toString()} ${TEST_TOKEN_INITIAL_SUPPLY.toString()}`);
+    await verifyContract(contracts.factory.target as string, '');
+    await verifyContract(contracts.pair.target as string, '');
+    await verifyContract(contracts.router.target as string, contracts.factory.target as string);
+    await verifyContract(contracts.flashloaner!.target as string, '');
 }
 
 

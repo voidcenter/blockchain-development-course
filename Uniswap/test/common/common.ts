@@ -1,6 +1,7 @@
 import { ethers } from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { UniswapV2Factory } from "../../typechain-types/UniswapV2Factory";
+import { UniswapV2Pair } from "../../typechain-types/UniswapV2Pair";
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 
@@ -82,13 +83,13 @@ export async function verifyContract(address: string,  initArgsStr: string) {
 };
 
 
-export async function getPairContractFromAddress(pairAddress: string) {
+export async function getPairContractFromAddress(pairAddress: string): Promise<UniswapV2Pair> {
     const UniswapV2Pair = await ethers.getContractFactory("UniswapV2Pair");
     return await UniswapV2Pair.attach(pairAddress) as any;
 }
 
 
-export async function getPairContract(factory: UniswapV2Factory, token0: string, token1: string) {
+export async function getPairContract(factory: UniswapV2Factory, token0: string, token1: string): Promise<UniswapV2Pair> {
     const pairAddress = await factory.getPair(token0, token1);
     return getPairContractFromAddress(pairAddress);
 }

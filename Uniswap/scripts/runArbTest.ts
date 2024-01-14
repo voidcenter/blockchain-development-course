@@ -1,9 +1,7 @@
-import { deployArbitrageTestContracts, printArbitrageTestContracts, serializeArbitrageTestContracts, verifyArbitrageTestContracts } from "../test/common/arbitrageTest";
+import { arbitrageTest, deployArbitrageTestContracts, deserializeArbitrageTestContracts, printArbitrageTestContracts, serializeArbitrageTestContracts, verifyArbitrageTestContracts } from "../test/common/arbitrageTest";
 import { getSigners } from "../test/common/common";
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
 
-const BASIC_TEST_CONTRACTS_ADDRESSES_JSON_FILE = './misc/basicTestContracts.json';
+const ARBITRAGE_TEST_CONTRACTS_ADDRESSES_JSON_FILE = './misc/arbitrageTestContracts.json';
 
 
 async function main() {
@@ -16,15 +14,15 @@ async function main() {
     You can serialize the addresses to a file and load them later.
     */
 
-    const contracts = await deployArbitrageTestContracts(signers);
+    // const contracts = await deployArbitrageTestContracts(signers);
+    // printArbitrageTestContracts(contracts);
+    // serializeArbitrageTestContracts(contracts, ARBITRAGE_TEST_CONTRACTS_ADDRESSES_JSON_FILE);
+
+    const contracts = await deserializeArbitrageTestContracts(ARBITRAGE_TEST_CONTRACTS_ADDRESSES_JSON_FILE);
+    // await verifyArbitrageTestContracts(contracts);
+
     printArbitrageTestContracts(contracts);
-    serializeArbitrageTestContracts(contracts, BASIC_TEST_CONTRACTS_ADDRESSES_JSON_FILE);
-    await verifyArbitrageTestContracts(contracts);
-
-    // const contracts = await deserializeBasicTestContracts(BASIC_TEST_CONTRACTS_ADDRESSES_JSON_FILE);
-    // printBasicTestContracts(contracts);
-
-    // await arbitrageTest(signers, contracts);
+    await arbitrageTest(signers, contracts);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

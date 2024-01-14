@@ -51,8 +51,9 @@ contract ArbitrageTest is IUniswapV2Callee {
 
         // pay back the flash loan
         uint paybackAmount = amountOut * 1004 / 1000;  
-        IERC20(parsedData[0]).transfer(msg.sender, paybackAmount);  // pay back the flash loan
         console.log('## [ExampleFlashSwap.uniswapV2Call] paybackAmount = ', paybackAmount);
+        console.log('## [ExampleFlashSwap.uniswapV2Call] balance = ', IERC20(parsedData[0]).balanceOf(address(this)));
+        IERC20(parsedData[0]).transfer(msg.sender, paybackAmount);  // pay back the flash loan
         console.log('## [ExampleFlashSwap.uniswapV2Call] profit = ', IERC20(parsedData[0]).balanceOf(address(this)));
 
     }

@@ -8,7 +8,7 @@ import { UniswapV2Factory } from "../../typechain-types/UniswapV2Factory";
 import { ArbitrageTest, MyERC20TokenOZ } from "../../typechain-types";
 import { UniswapV2Router02 } from "../../typechain-types/UniswapV2Router02";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { DECIMALS, DECIMALS_MULTIPLIER, Signers, TEST_TOKEN_INITIAL_SUPPLY, deployTx, getPairContract, getPairContractFromAddress, verifyContract } from "./common";
+import { DECIMALS, DECIMALS_MULTIPLIER, Signers, TEST_TOKEN_INITIAL_SUPPLY, deployTx, getBigIntAmountFormater, getPairContract, getPairContractFromAddress, tx, verifyContract } from "./common";
 import { experimentalAddHardhatNetworkMessageTraceHook } from 'hardhat/config';
 
 
@@ -39,17 +39,43 @@ const PairTokenIndices = [
                 // note that tokens[0] is not the same as token0 in the pair
                 // token0 and token1 in the pair are sorted lexically
                 // while here token[0], token[1], token[2] are merely our list of test tokens which is not sorted lexically
-                
-                tokenA, tokens[1] is tokenB
-                // they are different from the token0 and token1 in a pair
-                // if token[0] < token[1] lexically, 
-                //     then pair token0 = token[0] = tokenA, pair token1 = token[1] = tokenB
-                // If token[0] > token[1] lexically, 
-                //     then pair token0 = token[1] = tokenB, pair token1 = token[0] = tokenA
     [0, 2],
     [1, 2],
     [0, 3]
 ];
+
+
+/*
+    we set up the following prices reflecting market inefficiency:
+
+    t[0], t[1]:   1000, 2000        (1 t[0] = 2 t[1]  roughly)
+    t[1], t[2]:   1500, 1000        (3 t[1] = 2 t[2]  roughly)
+    t[0], t[2]:   1000, 1000        (1 t[0] = 1 t[2]  roughly)
+
+    this way, 300 t[0] -> 600 t[1] -> 400 t[2] -> 400 t[0]  (rougly)  is likely a profitable triangle trade.
+
+    we then have a pair:
+
+    t[0], t[3]:   2000, 2000        for liquidity borrowing. We don't trade in this pair, 
+                                    just use it as a source to fund the trade through flashloan.
+
+*/
+
+// before mulitiplying with DECIMALS_MULTIPLIER
+const PairLiquidities = [
+    [1000n, 2000n],
+    [1000n, 1000n],
+    [1500n, 1000n],
+    [2000n, 2000n]
+]
+// const PairLiquidities = [
+//     [1000n, 1800n],
+//     [900n, 1000n],
+//     [1500n, 900n],
+//     [2000n, 2000n]
+// ]
+const STAKING_ALLOWANCE = 10000n * DECIMALS_MULTIPLIER;
+
 
 
 interface ArbitrageTestContracts {
@@ -72,10 +98,9 @@ export async function deployArbitrageTestContracts(signers: Signers, localTest: 
     console.log('Deploying testing tokens ...');
     const tokens: MyERC20TokenOZ[] = [];
     for (let i = 0; i < NUM_TEST_TOKENS; i++) {
-        const tokenChar = String.fromCharCode(65 + i);  // 'A', 'B', 'C', 'D' ...
-        console.log(`Deploying token${tokenChar} ...`);
+        console.log(`Deploying token: ArbTestToken[${i}] ...`);
         tokens.push(await deployTx(ethers.deployContract
-            ("MyERC20TokenOZ", [`Token${tokenChar}`, `T${tokenChar}`, DECIMALS, TEST_TOKEN_INITIAL_SUPPLY])));
+            ("MyERC20TokenOZ", [`ArbTestToken[${i}]`, `ATT[${i}]`, DECIMALS, TEST_TOKEN_INITIAL_SUPPLY])));
     }
 
     console.log('Deploying factory contract ...');
@@ -85,25 +110,20 @@ export async function deployArbitrageTestContracts(signers: Signers, localTest: 
     const router = await deployTx(ethers.deployContract("UniswapV2Router02", [factory.target]));
 
 
-    // create pairs. pairs[0][3] stores the pair of t0, t3. note that pairs[0][3] == pairs[3][0]
-    console.log('Creating testing pairs ...');    
-    const UniswapV2PairFactory = await ethers.getContractFactory("UniswapV2Pair");
-
     // creating pairs
+    console.log('Creating testing pairs ...');    
     const pairs: UniswapV2Pair[] = [];
     for (let pairInd = 0; pairInd < PairTokenIndices.length; pairInd++) {
         const [i, j] = PairTokenIndices[pairInd];
-
-
-        const pairs = await Promise.all(PairTokenIndices.map(async ([i, j]) => {
-        await factory.createPair(tokens[i].target, tokens[j].target);
-        return await getPairContract(factory, tokens[i].target as string, tokens[j].target as string);
-    }));
+        console.log(`Creating testing pair for ArbTestToken[${i}] and ArbTestToken[${j}] ...`);
+        await tx(factory.createPair(tokens[i].target, tokens[j].target));
+        pairs.push(await getPairContract(factory, tokens[i].target as string, tokens[j].target as string));
+    };
 
 
     // Deploy arbitrageur
     console.log('Deploying arbitraguer contract ...');    
-    const arbitrageur = await ethers.deployContract("ArbitrageTest", [factory.target, router.target]);
+    const arbitrageur = await deployTx(ethers.deployContract("ArbitrageTest", [factory.target, router.target]));
 
 
     if (localTest) {            
@@ -140,18 +160,16 @@ export async function verifyArbitrageTestContracts(contracts: ArbitrageTestContr
     console.log('Verifying contracts ...');
     const { tokens, factory, pairs, router, arbitrageur } = contracts;
 
-    await Promise.all([
-        ... tokens.map((token, i) => {
-            const tokenChar = String.fromCharCode(65 + i);  
-            const initArgsStr = `"Token${tokenChar}" "T${tokenChar}" ${DECIMALS.toString()} ${TEST_TOKEN_INITIAL_SUPPLY.toString()}`;
-            verifyContract(token.target as string, initArgsStr);
-        }), 
-        verifyContract(factory.target as string, ''),
-        ... pairs.map(pair => verifyContract(pair.target as string, '')),
-        verifyContract(router.target as string, contracts.factory.target as string),
-        verifyContract(arbitrageur.target as string, 
-            `${factory.target} ${router.target}`),
-    ]);
+    for (let i = 0; i < tokens.length; i++) {
+        const initArgsStr = `"ArbTestToken[${i}]" "ATT[${i}]" ${DECIMALS.toString()} ${TEST_TOKEN_INITIAL_SUPPLY.toString()}`;
+        await verifyContract(tokens[i].target as string, initArgsStr);
+    }
+    await verifyContract(factory.target as string, '');
+    for (let i = 0; i < pairs.length; i++) {
+        await verifyContract(pairs[i].target as string, '');
+    }
+    await verifyContract(router.target as string, contracts.factory.target as string);
+    await verifyContract(arbitrageur.target as string, `${factory.target} ${router.target}`);
 }
 
 
@@ -206,56 +224,75 @@ export async function arbitrageTest(signers: Signers, contracts: ArbitrageTestCo
     const { tokens, pairs, factory, router, arbitrageur } = contracts;
 
     const time_in_the_future = Date.now() + 1000000000;
-    const maxStakeAmount = 10000n * DECIMALS_MULTIPLIER;
+    const fmt = getBigIntAmountFormater(DECIMALS);
 
     console.log('\n** tokens **');
     tokens.forEach((token, i) => {
-        const tokenChar = String.fromCharCode(65 + i);  
-        console.log(`token${tokenChar} = `, token.target);
+        console.log(`token[${i}]:  ArbTestToken[${i}] = `, token.target);
     });
 
-    pairs.forEach(async (pair, i) => {
-        const [tokenA, tokenB] = PairTokenIndices[i];
-        const tokenAChar = String.fromCharCode(65 + tokenA);  
-        const tokenBChar = String.fromCharCode(65 + tokenB);  
-        console.log(`pair[${i}] trades token${tokenAChar} and token${tokenBChar}], `,
+    await Promise.all(pairs.map(async (pair, pairInd) => {
+        const [i, j] = PairTokenIndices[pairInd];
+        console.log(`pair[${i}] trades ArbTestToken[${i}] and ArbTestToken[${j}], `,
                     'token 0 = ', await pair.token0(), 'token1 = ', await pair.token1());
-    });
+    }));
 
 
-    /*
-        we set up the following prices reflecting market inefficiency:
 
-        t0, t1:   1000, 2000        (1 t0 = 2 t1)
-        t1, t2:   1500, 1000        (3 t1 = 2 t2)
-        t0, t2:   1000, 1000        (1 t0 = 1 t2)
+    /* try cleaning up liquiity first */
+    // If no one else have used the contracts, this should rest the pairs.
+    // Then we can stake liquidity to test the arbitrage with profit. 
+    // If we do not clean up liquidity, the arbitrage might not be profitable.
+    // If other people have used the contracts, then this might not work. 
+    // In that case, it is best to redeploy.
+    console.log('\nCleaning up liquidity ...');
 
-        this way, 300 t0 -> 600 t1 -> 400 t2 -> 400 t0 is a profitable triangle trade.
-
-        we then have a pair:
-
-        t0, t3:   2000, 2000        for liquidity borrowing. We don't trade in this pair, 
-                                    just use it as a source to fund the trade through flashloan.
-
-    */
+    for (let pairInd = 0; pairInd < pairs.length; pairInd++) {
+        const pair = pairs[pairInd];
+        const [i, j] = PairTokenIndices[pairInd];
+        if (await pair.totalSupply() == 0n) {
+            continue;
+        }
+        console.log(`Cleaning up liquidity for pair ${pair.target} which trades ArbTestToken[${i}] and ArbTestToken[${j}] ...`);
+        const liquidity = await pair.balanceOf(owner.address);
+        await tx(pair.approve(router.target, liquidity)); 
+        await tx(router.removeLiquidity(pair.token0(), pair.token1(), liquidity, 0, 0, owner.address, time_in_the_future));
+    }
 
 
     /* staking liquidity */
 
-    console.log('\nStaking liquidity to the pairs ...');
-    tokens.map(async (token) => {
-        await token.approve(router.target, maxStakeAmount);
-    });
+    console.log('\nApproving to transfer tokens ...');
+    for (let i = 0; i < tokens.length; i++) {
+        console.log(`Approving to transfer token ArbTestToken[${i}]...`);
+        await tx(tokens[i].approve(router.target, STAKING_ALLOWANCE));
+    };
 
-    await router.addLiquidity(tokens[0].target, tokens[1].target, 1000n * DECIMALS_MULTIPLIER, 2000n * DECIMALS_MULTIPLIER, 
-        0, 0, owner.address, time_in_the_future);
-    await router.addLiquidity(tokens[1].target, tokens[2].target, 1500n * DECIMALS_MULTIPLIER, 1000n * DECIMALS_MULTIPLIER, 
-        0, 0, owner.address, time_in_the_future);
-    await router.addLiquidity(tokens[0].target, tokens[2].target, 1000n * DECIMALS_MULTIPLIER, 1000n * DECIMALS_MULTIPLIER, 
-        0, 0, owner.address, time_in_the_future);
-                
-    await router.addLiquidity(tokens[0].target, tokens[3].target, 2000n * DECIMALS_MULTIPLIER, 2000n * DECIMALS_MULTIPLIER, 
-        0, 0, owner.address, time_in_the_future);
+    console.log('\nStaking liquidity to the pairs ...');
+    for (let pairInd = 0; pairInd < pairs.length; pairInd++) {
+        const pair = pairs[pairInd];
+        const [i, j] = PairTokenIndices[pairInd];
+        const [li, lj] = PairLiquidities[pairInd];
+        console.log(`Staking liquidity to paid for ArbTestToken[${i}] and ArbTestToken[${j}]...`);
+
+        // Here we stake liquidity by directly calling the pair contract.
+        // This way we have full control of the staked liquidity. 
+        // 
+        // The router contract would enforce that the staked liquidity confroms to the  
+        // pair's reserves ratio. For example, if the pair has little liquidity left, like 
+        // reserves = [500, 2000], then the router would insist that we stakes token0 and token1
+        // in the ratio of 1:4. This makes it hard to reset the pair.
+        //
+        // By calling the pair directly, we can stake [1000000000000000000000, 1000000000000000000000] 
+        // liquidity (1:1 ratio) even if the current reserves are [500, 2000]. 
+        await tx(tokens[i].transfer(pair.target, li * DECIMALS_MULTIPLIER));
+        await tx(tokens[j].transfer(pair.target, lj * DECIMALS_MULTIPLIER));
+        await tx(pair.mint(owner.address));
+        // await tx(router.addLiquidity(
+        //     tokens[i].target, tokens[j].target, 
+        //     li * DECIMALS_MULTIPLIER, lj * DECIMALS_MULTIPLIER, 
+        //     0, 0, owner.address, time_in_the_future));
+    }
 
 
     /* arbitrage */
@@ -273,14 +310,15 @@ export async function arbitrageTest(signers: Signers, contracts: ArbitrageTestCo
 
     // now, specify the arbitrage path (token[0], token[1], token[2], token[1] and execute arbitrage
     const beforeBalance = await tokens[0].balanceOf(arbitrageur.target);
-    await pair.swap(
+    await tx(pair.swap(
         amount0Out,
         amount1Out,
         arbitrageur.target,
         abi.encode(['address[]'], [ [tokens[0].target, tokens[1].target, tokens[2].target, tokens[0].target] ])
-    )    
+    ));
     const afterBalance = await tokens[0].balanceOf(arbitrageur.target);
-
+    console.log(`borrowed ${fmt(borrowAmount)} ArbTestToken[0], arbitrage profit = ${fmt(afterBalance - beforeBalance)} ArbTestToken[0]`);
+    
     // expect to be profitable
     if (localTest) {
         expect(afterBalance).to.be.above(beforeBalance);

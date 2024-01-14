@@ -2,8 +2,6 @@ import { BasicTestContracts, basicTest, deployBasicTestContracts,
          deserializeBasicTestContracts, flashloanTest, printBasicTestContracts, 
          serializeBasicTestContracts, verifyBasicTestContracts } from "../test/common/basicTest";
 import { getSigners } from "../test/common/common";
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
 
 const BASIC_TEST_CONTRACTS_ADDRESSES_JSON_FILE = './misc/basicTestContracts.json';
 

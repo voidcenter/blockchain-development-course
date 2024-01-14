@@ -246,6 +246,8 @@ export async function deserializeArbitrageTestContracts(filename: string): Promi
 //       profitability when tested on the testnet or the mainnet, 
 export async function arbitrageTest(signers: Signers, contracts: ArbitrageTestContracts, localTest: boolean = false) {
 
+    console.log('\n== Arbitrage test ==');
+
     const { owner } = signers;
     const { tokens, pairs, factory, router, arbitrageur } = contracts;
 

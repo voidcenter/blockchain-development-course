@@ -170,10 +170,18 @@ export async function deserializeBasicTestContracts(filename: string): Promise<B
 // Thijs should only be run in local test
 export async function basicTest(signers: Signers, contracts: BasicTestContracts, localTest: boolean = false) {
 
+    console.log('\n== Basic test ==');
+
     const { owner, swapper } = signers;
     const { tokenA, tokenB, pair, router } = contracts;
     const fmt = getBigIntAmountFormater(DECIMALS);
     const MINIMUM_LIQUIDITY = 1000n;
+
+    // owner will stake tokenA, tokenB to the pair, both in the amount of stakeAmount
+    // then swapper will swap tokenA for tokenB, with the amount of tokenA submitted being tokenAAmountIn
+    const time_in_the_future = Date.now() + 1000000000;
+    const stakeAmount = 1000n * DECIMALS_MULTIPLIER;
+    const tokenAAmountIn = 100n * DECIMALS_MULTIPLIER;
 
     console.log('\n** tokens **');
     console.log('tokenA = ', tokenA.target, 'tokenB = ', tokenB.target);   
@@ -181,16 +189,12 @@ export async function basicTest(signers: Signers, contracts: BasicTestContracts,
 
 
     /* add liquidity */
-    const time_in_the_future = Date.now() + 1000000000;
-    const stakeAmount = 1000n * DECIMALS_MULTIPLIER;
-    console.log('\nApproving the router to transfer tokenA and tokenB from owner ...');
-    await waitForTxs([await tokenA.approve(router.target, stakeAmount), 
-                      await tokenB.approve(router.target, stakeAmount)]);
-    console.log('Adding liquidity ...');
-    await tx(router.addLiquidity(tokenA.target, tokenB.target, stakeAmount, stakeAmount, 0, 0, owner.address, time_in_the_future));
+    console.log('\nAdding liquidity and also send swapper some tokenA...');
+    await waitForTxs([
+        await router.addLiquidity(tokenA.target, tokenB.target, stakeAmount, stakeAmount, 0, 0, owner.address, time_in_the_future),
+        await tokenA.transfer(swapper!.address, tokenAAmountIn)]);  
     
-
-    // check staked liquidity
+    // print and check
     let liquidity = await pair.balanceOf(owner.address);
     let reserves = await pair.getReserves() as [bigint, bigint];
     console.log('owner staked', fmt(stakeAmount), 'tokenA and', fmt(stakeAmount), 'tokenB to liquidity pool');
@@ -205,17 +209,11 @@ export async function basicTest(signers: Signers, contracts: BasicTestContracts,
     }
 
     /* swap */
-    const tokenAAmountIn = 100n * DECIMALS_MULTIPLIER;
-    // //transfer 100 token0 to swapper and allows router to transfer these tokens on behalf of swapper
-    console.log('\nSend some tokenA to swapper and approve router to transfer them ... ');
-    await waitForTxs([await tokenA.transfer(swapper!.address, tokenAAmountIn),   
-                      await tokenA.connect(swapper).approve(router.target, tokenAAmountIn)]);  
-    console.log('Swapping ... ');
+    console.log('\nSwapping ... ');
     await tx(router.connect(swapper).swapExactTokensForTokens
         (tokenAAmountIn, 0, [tokenA.target, tokenB.target], swapper!.address, time_in_the_future));
 
-
-    // check swapped amount 
+    // print and check
     let tokenBAmountOut = await tokenB.balanceOf(swapper!.address);
     console.log('swapper swapped ', fmt(tokenAAmountIn), 'tokenA for', fmt(tokenBAmountOut), 'tokenB');
     reserves = await pair.getReserves() as [bigint, bigint];
@@ -228,14 +226,11 @@ export async function basicTest(signers: Signers, contracts: BasicTestContracts,
     }
 
     /* remove liquidity */
-    console.log('\nApproving the router to transfer liquidity tokens from owner ...');
-    await tx(pair.approve(router.target, liquidity));
-    console.log('Removing liquidity ...');
+    console.log('\nRemoving liquidity ...');
     await tx(router.removeLiquidity
         (tokenA.target, tokenB.target, liquidity, 0, 0, owner.address, time_in_the_future));
 
-
-    // check removed liquidity
+    // print and check
     const ownerToken0 = await tokenA.balanceOf(owner.address);
     const ownerToken1 = await tokenB.balanceOf(owner.address);
     console.log('owner redeemed', fmt(liquidity), 'liquidity tokens');
@@ -256,44 +251,39 @@ export async function basicTest(signers: Signers, contracts: BasicTestContracts,
 // test flashloan
 export async function flashloanTest(signers: Signers, contracts: BasicTestContracts, localTest: boolean = false) {
 
-    console.log('\n');
+    console.log('\n== Flashloan test ==');
 
     const { owner } = signers;
     const { tokenA, tokenB, pair, router, flashloaner } = contracts;
     const fmt = getBigIntAmountFormater(DECIMALS);
 
+    /*
+        We are demonstrating flashloan here with over-repayment. This means that we borrow 1000 tokens and later repay
+        1004 tokens. This is not profitable but the point is to demonstrate that we can borrow without collateral.
+        In practical use, we would use these borrowed 1000 tokens to trade for a profit, like end up with 1100 tokens, 
+        then we issue the repayment of 1004 tokens, and keep the 96 tokens as profit.
+
+        For this test, because the owner has sent some token0 to the flashloaner in advance, it can afford to repay 
+        a little more than what it borrowed.
+    */
+
     const time_in_the_future = Date.now() + 1000000000;
     const stakeAmount = 1000n * DECIMALS_MULTIPLIER;
+    const pairToken0 = await pair.token0() === tokenA.target ? tokenA : tokenB;
 
-    console.log('Approving the router to transfer tokenA and tokenB from Staking liquidity to pair ...');
-    await waitForTxs([await tokenA.approve(router.target, stakeAmount),             // for staking tokenA
-                      await tokenB.approve(router.target, stakeAmount),             // for staking tokenB
-                      await tokenA.transfer(flashloaner.target, stakeAmount),       // for flashloaner to repay tokenA
-                      await tokenB.transfer(flashloaner.target, stakeAmount)]);     // for flashloaner to repay tokenB
-    console.log('Staking liquidity to pair ...');
-    await tx(router.addLiquidity(tokenA.target, tokenB.target, stakeAmount, stakeAmount, 0, 0, owner.address, time_in_the_future));
-
-    // flashloan
-
-    // /*
-    //     We are demonstrating flashloan here with over-repayment. This means that we borrow 1000 tokens and later repay
-    //     1004 tokens. This is not profitable but the point is to demonstrate that we can borrow without collateral.
-    //     In practical use, we would use these borrowed 1000 tokens to trade for a profit, like end up with 1100 tokens, 
-    //     then we issue the repayment of 1004 tokens, and keep the 96 tokens as profit.
-
-    //     For this test, because the owner has sent some token0 to the flashloaner in advance, it can afford to repay 
-    //     a little more than what it borrowed.
-    // */
+    console.log('\nAdd liquidity to the pair and send the flashloaner some pairToken0 to pay for the flashloan ...');
+    await waitForTxs([await router.addLiquidity(tokenA.target, tokenB.target, stakeAmount, stakeAmount, 
+                                                0, 0, owner.address, time_in_the_future),
+                      await pairToken0.transfer(flashloaner.target, stakeAmount / 100n)]);     
 
     // flashloan, note that we are calling the pair directly
-    console.log('Sending flashloan request ...');
+    console.log('\nSending flashloan request ...');
     const abi = AbiCoder.defaultAbiCoder();
     const loanAmount = stakeAmount / 2n;
     await tx(pair.swap(
-        loanAmount,        // only borrow token0
+        loanAmount,        // borrow token0
         0,
         flashloaner.target,
         abi.encode(['uint'], [123n])));
     console.log(`Borrowed ${fmt(loanAmount)} tokenA without collateral ...`);
 }
-

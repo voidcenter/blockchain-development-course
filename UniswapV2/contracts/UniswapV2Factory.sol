@@ -43,6 +43,9 @@ contract UniswapV2Factory is IUniswapV2Factory {
 
         bytes memory bytecode = type(UniswapV2Pair).creationCode;
         bytes32 salt = keccak256(abi.encodePacked(token0, token1));
+        
+        // plug this hash into the pairFor function in UniswapV2Library.sol
+        console.log('factory createPair bytecode hash', Strings.toHexString(uint256(keccak256(bytecode))));
 
         // create contract at deterministic address: https://www.evm.codes/?fork=shanghai 
         // bytecode = [32 bytes of code length] [code]

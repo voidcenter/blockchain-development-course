@@ -18,7 +18,7 @@ library UniswapV2Library {
         require(token0 != address(0), 'UniswapV2Library: ZERO_ADDRESS');
     }
 
-    // easier way, but costs more gas
+    // easier way, but costs slightly more gas
     function pairFor(address factory, address tokenA, address tokenB) internal view returns (address pair) {
          return IUniswapV2Factory(factory).getPair(tokenA, tokenB);
     }
@@ -33,32 +33,26 @@ library UniswapV2Library {
                 keccak256(abi.encodePacked(token0, token1)),
 
                 // update this after re-compliing UniswapV2Pair.sol
-                hex'71a70a1de0a14ed98b409a84cab3ea6088fa3557e216c8a09aecdf5984fa3a1d'  
-                // hex'96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f' // init code hash
+                hex'4cc02eb91a07416e835e9f5a38814665506eafd70acfe006e7ca51e7040970da'  
             )))));
     }
 
     // fetches and sorts the reserves for a pair
     function getReserves(address factory, address tokenA, address tokenB) internal view returns (uint reserveA, uint reserveB) {
 
-        // console.log('getReserves', 1);
         (address token0,) = sortTokens(tokenA, tokenB);
-        // console.log('getReserves', 2);
-        // console.log('getReserves', factory, tokenA, tokenB);
-        // console.log('getReserves', pairFor(factory, tokenA, tokenB));
 
         // uint initialGas = gasleft();
         // pairFor(factory, tokenA, tokenB);
         // uint gasUsed = initialGas - gasleft();
-        // console.log('pairFor gasUsed', gasUsed);
+        // console.log('## [UniswapV2Library.getReserves] UniswapV2Library.pairFor() gasUsed', gasUsed);
 
         // initialGas = gasleft();
-        // pairForExpensive(factory, tokenA, tokenB);
+        // IUniswapV2Factory(factory).getPair(tokenA, tokenB);
         // gasUsed = initialGas - gasleft();
-        // console.log('pairForExpensive gasUsed', gasUsed);
+        // console.log('## [UniswapV2Library.getReserves] factory.getPair() gasUsed', gasUsed);
 
         (uint reserve0, uint reserve1) = IUniswapV2Pair(pairFor(factory, tokenA, tokenB)).getReserves();
-        // console.log('getReserves', 3);
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 

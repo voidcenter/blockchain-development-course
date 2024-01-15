@@ -16,7 +16,8 @@ contract FlashloanTest is IUniswapV2Callee {
 
     // Take out a collateral-less loan and repay it back with fee
     // Usually, amount0Out == 0 or amount1Out == 0, but it's not required
-    function uniswapV2Call(address sender, uint amount0Out, uint amount1Out, bytes calldata data) external override {
+    function uniswapV2Call(address sender, uint amount0Out, uint amount1Out, bytes calldata data) 
+            external override {
 
         address token0 = IUniswapV2Pair(msg.sender).token0();
         address token1 = IUniswapV2Pair(msg.sender).token1();
@@ -28,8 +29,13 @@ contract FlashloanTest is IUniswapV2Callee {
 
         // amounts we need to pay, consdiering 0.3% fee, amount0In * 0.997 == amount0Out
         // uint fee = amount0Out * 4 / 1000;  // should be 0.301%, use 0.4% for simplicity
-        uint amount0In = amount0Out + amount0Out * 4 / 1000;
-        uint amount1In = amount1Out + amount1Out * 4 / 1000;
+
+        // amount0In * 0.997 = amount0Out
+        uint amount0In = amount0Out > 0 ? amount0Out * 1000 / 997 + 1 : 0;
+        uint amount1In = amount1Out > 0 ? amount1Out * 1000 / 997 + 1 : 0;
+
+        // uint amount0In = amount0Out + amount0Out * 4 / 1000;
+        // uint amount1In = amount1Out + amount1Out * 4 / 1000;
         console.log('## [ExampleFlashSwap.uniswapV2Call] amounts0In = ', amount0In);
         console.log('## [ExampleFlashSwap.uniswapV2Call] amounts1In = ', amount1In);
 

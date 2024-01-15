@@ -1,8 +1,9 @@
 import { arbitrageTest, deployArbitrageTestContracts, deserializeArbitrageTestContracts, 
          printArbitrageTestContracts, serializeArbitrageTestContracts, verifyArbitrageTestContracts } 
          from "../test/common/arbitrageTest";
-import { getSigners } from "../test/common/common";
-
+import { getSigners, DEFAULT_HARDHAT_LOCAL_NETWORK_CHAIN_ID } from "../test/common/common";
+import { network } from 'hardhat';
+         
 const ARBITRAGE_TEST_CONTRACTS_ADDRESSES_JSON_FILE = './misc/arbitrageTestContracts.json';
 
 
@@ -12,9 +13,26 @@ async function main() {
     console.log('owner address = ', signers.owner.address)
     console.log('swapper address = ', signers.swapper!.address)
 
-    /* You should only do this occasionally because it costs a lot of gas. 
-    You can serialize the addresses to a file and load them later.
-    */
+
+    const chainIdHex = await network.provider.send('eth_chainId');
+    const chainId = parseInt(chainIdHex, 16);
+    console.log('chainId = ', chainId);
+
+
+    // If it is local network, run the test E2E  
+    if (chainId === DEFAULT_HARDHAT_LOCAL_NETWORK_CHAIN_ID) {
+        const contracts = await deployArbitrageTestContracts(signers);
+        printArbitrageTestContracts(contracts);
+        await arbitrageTest(signers, contracts);
+        return;
+    }
+    
+
+    /* 
+        Otherwise, give the option for loading previously deployed contracts
+        When working with testnet, it could be desirable to load previously deployed contracts
+        This is because sometimes deploying on testnet can be costly in terms of gas
+    */ 
 
     // const contracts = await deployArbitrageTestContracts(signers);
     // printArbitrageTestContracts(contracts);

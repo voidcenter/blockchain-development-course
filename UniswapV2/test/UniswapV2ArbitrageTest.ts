@@ -3,7 +3,7 @@ import { getSigners } from "./common/common";
 
 
 describe("Arbitrage Test", function () {
-    it("Flashloan test should succeed", async function () {
+    it("Arbitrage test should succeed", async function () {
         const signers = await getSigners();
         const contracts = await deployArbitrageTestContracts(signers, true);
         printArbitrageTestContracts(contracts);

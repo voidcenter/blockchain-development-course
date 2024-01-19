@@ -14,6 +14,8 @@ export const DECIMALS_MULTIPLIER = 10n**DECIMALS;
 // We mint 1 billion tokens for each token
 export const TEST_TOKEN_INITIAL_SUPPLY = 10n ** 9n * DECIMALS_MULTIPLIER  ;
 
+export const DEFAULT_HARDHAT_LOCAL_NETWORK_CHAIN_ID = 31337;
+
 
 export interface Signers {
     owner: HardhatEthersSigner;

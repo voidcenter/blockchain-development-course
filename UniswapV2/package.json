@@ -1,14 +1,14 @@
 {
-  "name": "Uniswap",
+  "name": "UniswapV2",
   "version": "1.0.0",
-  "description": "Sample projects related to Uniswap",
+  "description": "Sample projects related to UniswapV2",
   "main": "index.js",
   "author": "Justin Zhang",
   "license": "MIT",
   "scripts": {
     "compile": "npx hardhat compile",
-    "basic-test": "npx hardhat run scripts/runBasicTest.ts --network sepolia",
-    "arb-test": "npx hardhat run scripts/runArbTest.ts --network sepolia"
+    "basic-test": "npx hardhat run scripts/runBasicTest.ts --network",
+    "arb-test": "npx hardhat run scripts/runArbTest.ts --network"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.1",

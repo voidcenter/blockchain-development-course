@@ -2,7 +2,7 @@ import { deployBasicTestContracts, basicTest, printBasicTestContracts, flashloan
 import { getSigners } from "./common/common";
 
 
-describe("E2E Test", function () {
+describe("Basic Test", function () {
 
     it("Basic test should succeed", async function () {
         const signers = await getSigners();

@@ -7,8 +7,9 @@ async function main() {
 
   const decimals = 2;
   const tokens = 100;
-  const token = await ethers.deployContract("MyERC20Token",
-      ["My ERC20 Token", "MY20", decimals, tokens * 10**decimals]);
+  const args = ["My ERC20 Token", "MY20", decimals, tokens * 10**decimals];
+  console.log(args)
+  const token = await ethers.deployContract("MyERC20Token", args);
 
   console.log("Token address:", await token.getAddress());
 }

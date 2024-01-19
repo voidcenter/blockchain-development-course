@@ -272,14 +272,15 @@ export async function flashloanTest(signers: Signers, contracts: BasicTestContra
     const pairToken0 = await pair.token0() === tokenA.target ? tokenA : tokenB;
 
     console.log('\nAdd liquidity to the pair and send the flashloaner some pairToken0 to pay for the flashloan ...');
+    const loanAmount = stakeAmount / 2n;
+    const loanInterest = loanAmount * 1000n / 997n + 1n - loanAmount;
     await waitForTxs([await router.addLiquidity(tokenA.target, tokenB.target, stakeAmount, stakeAmount, 
                                                 0, 0, owner.address, time_in_the_future),
-                      await pairToken0.transfer(flashloaner.target, stakeAmount / 100n)]);     
+                      await pairToken0.transfer(flashloaner.target, loanInterest)]);
 
     // flashloan, note that we are calling the pair directly
     console.log('\nSending flashloan request ...');
     const abi = AbiCoder.defaultAbiCoder();
-    const loanAmount = stakeAmount / 2n;
     await tx(pair.swap(
         loanAmount,        // borrow token0
         0,

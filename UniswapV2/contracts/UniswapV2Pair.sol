@@ -165,7 +165,8 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
             if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
 
             // call callback, this is only useful for flashloan
-            if (data.length > 0) IUniswapV2Callee(to).uniswapV2Call(msg.sender, amount0Out, amount1Out, data);
+            if (data.length > 0) IUniswapV2Callee(to).uniswapV2Call
+                (msg.sender, amount0Out, amount1Out, data);
 
             // token balances after the swap
             balance0 = IERC20(_token0).balanceOf(address(this));
@@ -187,7 +188,8 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
 
             // after deducting 0.3% fee, k is constant (*)
             // k increases a little bit due to 0.3% fee.
-            require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(1000**2), 
+            require(   balance0Adjusted.mul(balance1Adjusted) 
+                    >= uint(_reserve0).mul(_reserve1).mul(1000**2), 
                     'UniswapV2: K');
         }
 

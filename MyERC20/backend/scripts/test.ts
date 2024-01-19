@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 
 async function main() {
-    const contractAddress = "0x5ae8b20195d12da6A5F1ae5d9fFD775464E952bc";
+    const contractAddress = "0x69798f4ACcc0aA70739F90115196b26732cd3278";
 
     const TokeContact = await ethers.getContractFactory("MyERC20Token");
     const contract = await TokeContact.attach(contractAddress) as any;
@@ -24,8 +24,9 @@ async function main() {
     console.log(`Allowance (${owner.address}, ${spender}):`, await contract.allowance(owner.address, spender));
 
     tx = await contract.approve(spender, 100000);
-    await tx.wait();
+    const reci = await tx.wait();
     console.log(`Allowance (${owner.address}, ${spender}):`, await contract.allowance(owner.address, spender));
+    // console.log("txn receipt:", reci);
 
     tx = await contract.approve(spender, 0);
     await tx.wait();

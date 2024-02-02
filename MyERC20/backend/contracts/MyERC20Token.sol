@@ -69,8 +69,8 @@ contract MyERC20Token {
     }
 
     function transferFrom(address _from, address _to, uint256 _value) public returns (bool success) {
-        require(balance[_from] >= _value);
-        require(allowance[_from][msg.sender] >= _value);
+        require(balance[_from] >= _value, "not enough balance");
+        require(allowance[_from][msg.sender] >= _value, "not enough allowance");
         allowance[_from][msg.sender] -= _value;
         balance[_from] -= _value;
         balance[_to] += _value;

@@ -10,7 +10,7 @@ import { UniswapV2Router02 } from "../../typechain-types/UniswapV2Router02";
 import { DECIMALS, DECIMALS_MULTIPLIER, TEST_TOKEN_INITIAL_SUPPLY, getPairContract, getPairContractFromAddress, waitForDeployTxs, waitForTxs } from "./common";
 import { getBigIntAmountFormater, tx, deployTx } from "./common";
 import { Signers, verifyContract } from "./common";
-import { FlashloanTest } from "../../typechain-types/contracts/test/FlashloanTest.sol";
+import { TestContract } from "../../typechain-types/contracts/test/FlashloanTest.sol";
 
 
 // These types are all taken care of by hardhat-typechain
@@ -20,7 +20,7 @@ export interface BasicTestContracts {
     factory: UniswapV2Factory;
     pair: UniswapV2Pair;
     router: UniswapV2Router02;
-    flashloaner: FlashloanTest;
+    flashloaner: TestContract;
 }
 
 
@@ -56,13 +56,13 @@ export async function deployBasicTestContracts(signers: Signers, localTest: bool
     deployTxs.push(await ethers.deployContract("UniswapV2Router02", [factory.target]));
 
     console.log('Deploying FlashloanTest contract...');
-    deployTxs.push(await ethers.deployContract("FlashloanTest", []));
+    deployTxs.push(await ethers.deployContract("TestContract", []));
 
     console.log('Creating pair for tokenA and tokenB ...');    
     txs = [];
     txs.push(await factory.createPair(tokenA.target, tokenB.target));
 
-    const [router, flashloaner] = await waitForDeployTxs(deployTxs) as [UniswapV2Router02, FlashloanTest];
+    const [router, flashloaner] = await waitForDeployTxs(deployTxs) as [UniswapV2Router02, TestContract];
     await waitForTxs(txs);
 
     const pair = await getPairContract(factory, tokenA.target, tokenB.target);

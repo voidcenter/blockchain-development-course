@@ -3,8 +3,8 @@ import { ethers } from "hardhat";
 async function main() {
     const contractAddress = "0x69798f4ACcc0aA70739F90115196b26732cd3278";
 
-    const TokeContact = await ethers.getContractFactory("MyERC20Token");
-    const contract = await TokeContact.attach(contractAddress) as any;
+    const TokenContract = await ethers.getContractFactory("MyERC20Token");
+    const contract = await TokenContract.attach(contractAddress) as any;
 
     // read basic info
     console.log("Contract name:", await contract.name());
